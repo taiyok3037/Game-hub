@@ -10,6 +10,8 @@
 //  - 21点以上になると「きゅうり」1本（ライフを1つ失う）→ 他の人の最高点に戻って続行
 //    2本目で脱落。最後の1人が勝ち
 // =============================================================
+const readyCheck = require('../../lib/readyCheck');
+
 const SUITS = ['♠', '♥', '♦', '♣'];
 const RANKS = ['2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
 const HAND_SIZE = 7;
@@ -67,26 +69,15 @@ function deal(state) {
   state.log.push(`${state.players[state.dealer].name} が配りました（第${++state.handNo}回）`);
 }
 
-// 接続状況を state に取り込む（view で needIds を出すために保持する）
-function syncConn(state, room) {
-  if (room && Array.isArray(room.connectedIds)) state.connectedIds = room.connectedIds.slice();
-}
-
-// 次の配りに「準備OK」が必要な人（脱落しておらず、かつ接続中）
-function needSeats(state) {
+// 準備OK（次の配りに「準備OK」が必要な人＝脱落しておらず、かつ接続中）
+const ready = readyCheck(state => {
   const conn = state.connectedIds || state.players.map(p => p.id);
   return state.players.map((_, i) => i).filter(i => !state.out[i] && conn.includes(state.players[i].id));
-}
-
-// 必要な人が全員そろったか
-function readyComplete(state) {
-  const need = needSeats(state);
-  return need.length > 0 && need.every(i => state.ready.includes(i));
-}
+});
 
 // result 中で全員そろっていれば次の配りへ。配ったら true
 function maybeDeal(state) {
-  if (state.phase === 'result' && readyComplete(state)) {
+  if (state.phase === 'result' && ready.isAllReady(state)) {
     deal(state);
     state.log = state.log.slice(-10);
     return true;
@@ -179,16 +170,12 @@ module.exports = {
   action(state, playerId, action, room) {
     const seat = state.players.findIndex(p => p.id === playerId);
     if (seat === -1) return { error: 'このゲームの参加者ではありません' };
-    syncConn(state, room);
+    ready.syncConn(state, room);
 
     // 準備OKの付け外し（脱落した人も押せるが、数には入れない）
     if (action.type === 'ready') {
       if (state.phase !== 'result') return { error: '今は準備OKを押せません' };
-      if (action.on !== false) {
-        if (!state.ready.includes(seat)) state.ready.push(seat);
-      } else {
-        state.ready = state.ready.filter(s => s !== seat);
-      }
+      ready.toggle(state, seat, action.on);
       maybeDeal(state);
       return;
     }
@@ -247,8 +234,8 @@ module.exports = {
       handSize: HAND_SIZE,
       phase: state.phase,
       trickNo: state.trickNo,
-      readyIds: state.ready.map(id),
-      needIds: needSeats(state).map(id),
+      readyIds: ready.readyIds(state),
+      needIds: ready.needIds(state),
       nextId: nextSeat === -1 ? null : id(nextSeat),
       players: state.players.map((p, i) => ({
         id: p.id,
@@ -295,7 +282,7 @@ module.exports = {
 
   // 誰かが切断・再接続したとき。必要な人が減って全員そろえば次の配りへ進む
   onConnectionChange(state, room) {
-    syncConn(state, room);
+    ready.syncConn(state, room);
     return maybeDeal(state);
   },
 
