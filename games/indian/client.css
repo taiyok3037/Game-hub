@@ -1,0 +1,175 @@
+/* インディアンポーカー */
+
+/* ---- 席（おでこカード） ---- */
+.ip-seats {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px 10px;
+  margin-bottom: 14px;
+}
+.ip-seat {
+  min-width: 72px;
+  gap: 5px;
+}
+.ip-forehead { height: 90px; display: flex; align-items: center; justify-content: center; }
+.ip-forehead .pcard { width: 64px; height: 90px; }
+.ip-forehead .pcard.sm { width: 38px; height: 54px; }
+
+/* 自分のおでこ（裏＋？） */
+.ip-back { position: relative; display: inline-flex; }
+.ip-back .pcard { width: 64px; height: 90px; }
+.ip-q {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-title);
+  font-size: 40px;
+  font-weight: 700;
+  color: var(--paper-light);
+  text-shadow: 0 2px 4px rgba(0,0,0,.5);
+}
+
+.ip-first {
+  font-size: 10px;
+  margin-left: 5px;
+  background: var(--wood);
+  color: #fff;
+  border-radius: 4px;
+  padding: 0 5px;
+}
+.ip-you { font-size: 11px; font-weight: 900; color: var(--gold); }
+
+/* ライフの丸 */
+.ip-lives { display: inline-flex; gap: 3px; }
+.ip-life {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--red);
+  box-sizing: border-box;
+}
+.ip-life.on { background: var(--red); }
+
+/* 宣言バッジ */
+.ip-badge {
+  font-size: 11px;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 1px 10px;
+  min-height: 18px;
+}
+.ip-badge.fight { background: var(--red); color: #fff; }
+.ip-badge.fold { background: #9a8f7c; color: #fff; }
+.ip-badge.think { background: var(--gold); color: var(--ink); }
+.ip-badge.empty { background: transparent; }
+
+/* 公開時のめくり演出（自分のカード） */
+.ip-flip { animation: ip-flip .5s ease; transform-style: preserve-3d; }
+@keyframes ip-flip {
+  0% { transform: rotateY(180deg); }
+  100% { transform: rotateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ip-flip { animation: none; }
+}
+
+/* ---- 宣言ボタン ---- */
+.ip-choices { display: flex; gap: 12px; max-width: 360px; margin: 4px auto 8px; }
+.ip-choices .btn { flex: 1; }
+
+/* ---- 結果パネル ---- */
+.ip-result {
+  background: var(--paper-light);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+  display: grid;
+  gap: 10px;
+}
+.ip-voided {
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--red);
+}
+.ip-winner {
+  text-align: center;
+  font-family: var(--font-title);
+  font-size: 22px;
+}
+.ip-rrows { display: grid; gap: 4px; }
+.ip-rrow {
+  display: grid;
+  grid-template-columns: 40px 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ip-rrow.lost { background: rgba(192,70,44,.16); }
+.ip-rname { font-weight: 900; }
+.ip-rdecl { color: var(--ink-soft); }
+.ip-rjudge { font-weight: 900; }
+
+/* ---- 準備OK（きゅうりと同じ見た目） ---- */
+.ip-ready { display: grid; gap: 8px; }
+.ip-ready-head { font-weight: 900; font-size: 15px; }
+.ip-ready-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.ip-ready-list li {
+  background: var(--paper);
+  border: 2px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: var(--ink-soft);
+}
+.ip-ready-list li.ok { color: #2f5f1d; border-color: #5aa13c; }
+.ip-ready-btn { width: 100%; }
+.ip-force { justify-self: center; }
+.ip-pulse { animation: ip-pulse 2s ease-in-out infinite; }
+@keyframes ip-pulse {
+  0%, 100% { box-shadow: 0 4px 0 var(--red-dark), 0 0 0 0 rgba(255,209,102,0); }
+  50%      { box-shadow: 0 4px 0 var(--red-dark), 0 0 16px 3px rgba(255,209,102,.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ip-pulse { animation: none; outline: 2px solid var(--gold); }
+}
+
+/* ---- g-side ライフ表 ---- */
+.ip-lifetable {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+}
+.ip-lifetable h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 16px; }
+.ip-srow {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px dashed var(--paper-line);
+  font-size: 13px;
+}
+.ip-srow:first-of-type { border-top: none; }
+.ip-srow.out { opacity: .5; }
+.ip-srow.me .ip-sname { color: var(--red); }
+.ip-sname { font-weight: 900; }
+.ip-sstate { font-size: 11px; color: var(--ink-soft); }

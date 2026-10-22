@@ -245,11 +245,12 @@ module.exports = {
         left: state.left[i],
         decl: state.decl[i],
         isStarter: i === state.starter,
-        // ★自分のカードは declare 中は必ず null。脱落者は常に null。
-        card: state.out[i] ? null
-          : state.phase === 'declare'
-            ? (i === seat ? null : state.cards[i])
-            : state.cards[i],
+        // ★自分のカードは declare 中は必ず null。
+        //   reveal/over は、その回に配られたカードをそのまま見せる（このラウンドで脱落した人も見える。
+        //   以前から脱落している人は cards[i] が null）。
+        card: state.phase === 'declare'
+          ? (state.out[i] ? null : (i === seat ? null : state.cards[i]))
+          : state.cards[i],
       })),
       log: state.log,
     };
