@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js",
-    "test": "node test/cucumber.random.js"
+    "test": "node test/cucumber.random.js && node test/indian.random.js"
   },
   "engines": {
     "node": ">=18"
