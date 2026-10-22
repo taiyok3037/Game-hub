@@ -1,6 +1,18 @@
 // きゅうりの画面
 import { cardHTML } from '/lib/cards.js';
 
+// ルール（基盤がルールパネル／ボトムシートに表示する）
+export const rules = `<ul>
+  <li>強さは A ＞ K ＞ Q ＞ J ＞ 10 … ＞ 2。マーク（♠♥♦♣）は関係なし</li>
+  <li>各自7枚で、7回カードを出し合います（トリック）</li>
+  <li>最初の人は何でもOK。次からは「場の一番強い札と同じか上」か「自分の一番弱い札」を出す</li>
+  <li>一番強い札を出した人（同じなら後に出した人）がトリックを取り、次の最初の人になる</li>
+  <li><strong>最後のトリックを取った人だけ</strong>、その札の数字ぶん失点（A=14, K=13, Q=12, J=11）</li>
+  <li>そのとき同じ数字を出していた人は、同じ点数ぶん減点されます</li>
+  <li>21点以上で「きゅうり」1本。他の人の最高点に戻って続行。2本目で脱落</li>
+  <li>最後まで残った人の勝ち</li>
+</ul>`;
+
 const RANK_NAME = { 11: 'J', 12: 'Q', 13: 'K', 14: 'A' };
 const rankName = v => RANK_NAME[v] || String(v);
 
@@ -100,33 +112,26 @@ export function render(root, v, ctx) {
   ).join('');
 
   root.innerHTML = `
-    <div class="felt">
-      <div class="seats cu-seats">${seats}</div>
-      <div class="note ${myTurn ? '' : 'plain'}"><small>${small}</small><strong>${big}</strong></div>
-      ${trickArea}
-      ${result}
-      ${prev}
-      <ul class="log">${v.log.slice().reverse().slice(0, 4).map(l => `<li>${esc(l)}</li>`).join('')}</ul>
-    </div>
-    ${v.myHand.length ? `
-      <div class="hand-head">
-        <span>あなたの手札（${v.myHand.length}枚）</span>
-        <span class="cu-rule">${myTurn ? '明るいカードが出せます' : ''}</span>
+    <div class="g-layout">
+      <div class="g-main">
+        <div class="felt">
+          <div class="seats cu-seats">${seats}</div>
+          <div class="note ${myTurn ? '' : 'plain'}"><small>${small}</small><strong>${big}</strong></div>
+          ${trickArea}
+          ${result}
+          ${prev}
+        </div>
+        ${v.myHand.length ? `
+          <div class="hand-head">
+            <span>あなたの手札（${v.myHand.length}枚）</span>
+            <span class="cu-rule">${myTurn ? '明るいカードが出せます' : ''}</span>
+          </div>
+          <div class="hand cu-hand ${myTurn ? '' : 'idle'}">${hand}</div>` : ''}
       </div>
-      <div class="hand cu-hand ${myTurn ? '' : 'idle'}">${hand}</div>` : ''}
-    <details class="cu-help">
-      <summary>ルール</summary>
-      <ul>
-        <li>強さは A ＞ K ＞ Q ＞ J ＞ 10 … ＞ 2。マーク（♠♥♦♣）は関係なし</li>
-        <li>各自7枚で、7回カードを出し合います（トリック）</li>
-        <li>最初の人は何でもOK。次からは「場の一番強い札と同じか上」か「自分の一番弱い札」を出す</li>
-        <li>一番強い札を出した人（同じなら後に出した人）がトリックを取り、次の最初の人になる</li>
-        <li><strong>最後のトリックを取った人だけ</strong>、その札の数字ぶん失点（A=14, K=13, Q=12, J=11）</li>
-        <li>そのとき同じ数字を出していた人は、同じ点数ぶん減点されます</li>
-        <li>${v.limit}点以上で「きゅうり」1本。他の人の最高点に戻って続行。2本目で脱落</li>
-        <li>最後まで残った人の勝ち</li>
-      </ul>
-    </details>`;
+      <div class="g-side">
+        <ul class="log">${v.log.slice().reverse().slice(0, 10).map(l => `<li>${esc(l)}</li>`).join('')}</ul>
+      </div>
+    </div>`;
 
   const handEl = root.querySelector('.cu-hand');
   if (handEl) {

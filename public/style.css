@@ -536,3 +536,75 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   box-shadow: 0 2px 4px rgba(0,0,0,.3);
 }
 .log li:first-child { color: var(--ink); font-weight: 700; }
+
+/* =============================================================
+   PCレイアウト（A-5）
+   ============================================================= */
+/* ゲームの中身は .g-layout > .g-main（卓・手札）＋任意の .g-side（得点表・記録） */
+.g-layout { display: grid; grid-template-columns: 1fr; gap: 14px; }
+.g-main { min-width: 0; }
+.g-side { min-width: 0; display: grid; gap: 14px; align-content: start; }
+
+/* 外側：ゲーム本体（#game-root）＋ 右のルールパネル */
+.game-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
+
+/* ルールパネル（紙のパネル風・貼り付く） */
+.rules-panel {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+  padding: 14px 16px;
+  position: sticky;
+  top: 16px;
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+}
+.rules-panel h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
+.rules-panel ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
+.rules-panel li + li { margin-top: 4px; }
+
+/* ルールのボトムシート（スマホ） */
+.rules-sheet {
+  position: fixed;
+  left: 0; right: 0; bottom: 0; top: auto;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  border: none;
+  border-radius: 16px 16px 0 0;
+  padding: 16px 18px calc(18px + env(safe-area-inset-bottom));
+  background: var(--paper);
+  color: var(--ink);
+  max-height: 80dvh;
+  overflow: auto;
+}
+.rules-sheet::backdrop { background: rgba(0,0,0,.5); }
+.rules-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+.rules-sheet h3 { margin: 0; font-family: var(--font-title); font-size: 20px; }
+.rules-sheet ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
+
+/* 767px 以下：1列。ルールは aside を隠してボトムシートで見る */
+@media (max-width: 767px) {
+  .rules-panel { display: none !important; }
+}
+
+/* 768〜1099px：2列（左に本体、右にルール280px）。本体内は g-main → g-side の縦 */
+@media (min-width: 768px) {
+  #screen-game { max-width: 1024px; }
+  .game-layout { grid-template-columns: minmax(0, 1fr) 280px; }
+  #rules-btn { display: none; }
+}
+
+/* 1100px 以上：3列。左 g-side(260)・中央 g-main(560)・右ルール(300)。全体 1240px */
+@media (min-width: 1100px) {
+  #screen-game { max-width: 1240px; }
+  .game-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .g-layout {
+    grid-template-columns: 260px minmax(0, 560px);
+    justify-content: center;
+    align-items: start;
+  }
+  .g-side { order: 1; }  /* 左 */
+  .g-main { order: 2; }  /* 中央 */
+}

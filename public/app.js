@@ -80,6 +80,13 @@ $('#mute-btn').addEventListener('click', () => {
 });
 refreshMuteBtn();
 
+// ---------- ルールパネル / ボトムシート ----------
+$('#rules-btn').addEventListener('click', () => $('#rules-dialog').showModal());
+$('#rules-close').addEventListener('click', () => $('#rules-dialog').close());
+$('#rules-dialog').addEventListener('click', e => {
+  if (e.target === $('#rules-dialog')) $('#rules-dialog').close(); // 背景タップで閉じる
+});
+
 function show(name) {
   for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== `screen-${name}`;
 }
@@ -240,6 +247,18 @@ async function renderGame(r) {
 
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
+
+  // ルール（ゲームが export const rules で公開していれば表示する）
+  const aside = $('#game-rules');
+  if (aside.dataset.game !== r.gameId) {
+    if (mod.rules) {
+      aside.innerHTML = `<h3>ルール</h3>${mod.rules}`;
+      $('#rules-dialog-body').innerHTML = mod.rules;
+    }
+    aside.dataset.game = r.gameId;
+  }
+  aside.hidden = !mod.rules;
+  $('#rules-btn').hidden = !mod.rules;
 
   // 前回描画した view（同じルーム・同じゲームのときだけ）
   const key = `${r.code}|${r.gameId}`;

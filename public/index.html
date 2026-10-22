@@ -75,18 +75,31 @@
         <span class="room-tag">卓 <span id="game-code"></span></span>
       </div>
       <div class="game-bar-actions">
+        <button id="rules-btn" class="btn ghost small" hidden>ルール</button>
         <button id="mute-btn" class="btn ghost small icon-btn" aria-label="効果音オン" aria-pressed="true"></button>
         <button class="btn ghost small leave-btn">退店</button>
       </div>
     </header>
     <div id="game-offline" class="offline-list"></div>
-    <div id="game-root" class="game-root"></div>
+    <div class="game-layout">
+      <div id="game-root" class="game-root"></div>
+      <aside id="game-rules" class="rules-panel" hidden></aside>
+    </div>
     <div id="game-end" class="end-bar" hidden>
       <button id="back-lobby" class="btn primary">ロビーに戻ってもう一度</button>
       <p class="muted" id="end-wait">ホストがロビーに戻すのを待っています…</p>
     </div>
     <div id="turn-banner" class="turn-banner" hidden>あなたの番です</div>
   </section>
+
+  <!-- ルール（スマホ用ボトムシート） -->
+  <dialog id="rules-dialog" class="rules-sheet">
+    <div class="rules-sheet-head">
+      <h3>ルール</h3>
+      <button id="rules-close" class="btn ghost small">閉じる</button>
+    </div>
+    <div id="rules-dialog-body"></div>
+  </dialog>
 
   <div id="toast" class="toast" hidden></div>
   <div id="conn" class="conn" hidden>接続し直しています…</div>
