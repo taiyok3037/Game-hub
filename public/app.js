@@ -2,6 +2,8 @@
 //  共通の画面制御（ホーム → ロビー → ゲーム）
 //  ゲームごとの画面は /games/<id>/client.js の render() に任せる
 // =============================================================
+import { play as soundPlay, setMuted, isMuted } from '/lib/sound.js';
+
 const socket = io();
 const $ = s => document.querySelector(s);
 const SESSION_KEY = 'gamehub-session';
@@ -19,8 +21,26 @@ function resetPrev() { lastView = null; lastViewKey = null; }
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const call = (event, data = {}) => new Promise(res => socket.emit(event, data, res));
 
-// 効果音（A-4 で実装）。それまでは何もしない
-const sound = () => {};
+// 効果音。ctx.sound(name) から呼ぶ
+const sound = name => soundPlay(name);
+
+// ---------- ミュート切替ボタン ----------
+const SVG_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
+const SVG_OFF = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
+function refreshMuteBtn() {
+  const btn = $('#mute-btn');
+  if (!btn) return;
+  const muted = isMuted();
+  btn.innerHTML = muted ? SVG_OFF : SVG_ON;
+  btn.setAttribute('aria-label', muted ? '効果音オフ' : '効果音オン');
+  btn.setAttribute('aria-pressed', String(!muted));
+}
+$('#mute-btn').addEventListener('click', () => {
+  setMuted(!isMuted());
+  refreshMuteBtn();
+  if (!isMuted()) sound('ready'); // オンにしたら確認音
+});
+refreshMuteBtn();
 
 function show(name) {
   for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== `screen-${name}`;

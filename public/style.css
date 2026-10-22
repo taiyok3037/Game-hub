@@ -309,6 +309,15 @@ input:focus { border-color: var(--red); }
   letter-spacing: .1em;
 }
 .game-bar .leave-btn { margin-top: 0; }
+.game-bar-actions { display: flex; align-items: center; gap: 8px; }
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 8px;
+  line-height: 0;
+}
+.icon-btn[aria-pressed="false"] { opacity: .7; }
 .offline-list { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .offline-list:empty { display: none; }
 
