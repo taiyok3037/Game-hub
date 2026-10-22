@@ -84,6 +84,11 @@ h1, h2 { margin: 0; }
   color: #8a5a34;
 }
 
+/* ---------- 紙の面（共通マーカー） ----------
+   紙色の面にはこのクラスを付ける。上に置くボタン（.btn.ghost）の色が
+   自動で「紙の上向け」に切り替わる（下の .paper .btn.ghost 参照）。 */
+.paper { background: var(--paper-light); color: var(--ink); }
+
 /* ---------- 紙のパネル ---------- */
 .panel {
   background: var(--paper);
@@ -157,7 +162,8 @@ input:focus { border-color: var(--red); }
   border: 2px solid rgba(245,233,211,.5);
   box-shadow: none;
 }
-.panel .btn.ghost { color: var(--ink-soft); border-color: var(--paper-line); }
+/* 紙の面の上に置く ghost ボタンは、紙に映える濃い色・枠線にする */
+.paper .btn.ghost { color: var(--ink-soft); border-color: var(--paper-line); }
 .btn.big { width: 100%; padding: 16px; font-size: 18px; margin-top: 10px; }
 .btn.small { padding: 6px 12px; font-size: 13px; }
 .btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--wood-dark); }

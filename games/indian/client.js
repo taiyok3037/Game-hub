@@ -103,7 +103,7 @@ export function render(root, v, ctx) {
         <span class="ip-rjudge">${judged(p)}</span>
       </div>`).join('');
     result = `
-      <div class="ip-result">
+      <div class="ip-result paper">
         ${r.voided ? '<div class="ip-voided">全員アウトなのでノーカウント</div>' : ''}
         ${v.phase === 'over' ? `<div class="ip-winner">🏆 ${v.winnerId === ctx.me ? 'あなた' : name(v.winnerId)} さんの勝ち！</div>` : ''}
         <div class="ip-rrows">${rows}</div>

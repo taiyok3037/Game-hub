@@ -18,14 +18,14 @@
       <p>BOARD &amp; CARD CAFE</p>
     </header>
 
-    <div class="panel">
+    <div class="panel paper">
       <label class="field">
         <span>あなたの名前</span>
         <input id="name" maxlength="12" placeholder="例：たろう" autocomplete="nickname">
       </label>
     </div>
 
-    <div class="panel ticket">
+    <div class="panel ticket paper">
       <label class="ticket-main">
         <span class="label">招待コードで参加</span>
         <input id="join-code" maxlength="4" placeholder="ABCD" autocomplete="off" autocapitalize="characters">
@@ -50,7 +50,7 @@
       <h1 id="lobby-game"></h1>
       <p>WAITING ROOM</p>
     </header>
-    <div class="panel lobby">
+    <div class="panel lobby paper">
       <span class="label">招待コード</span>
       <div class="room-code" id="lobby-code"></div>
       <button id="copy-link" class="btn ghost small">招待リンクをコピー</button>
@@ -83,7 +83,7 @@
     <div id="game-offline" class="offline-list"></div>
     <div class="game-layout">
       <div id="game-root" class="game-root"></div>
-      <aside id="game-rules" class="rules-panel" hidden></aside>
+      <aside id="game-rules" class="rules-panel paper" hidden></aside>
     </div>
     <div id="game-end" class="end-bar" hidden>
       <button id="back-lobby" class="btn primary">ロビーに戻ってもう一度</button>
@@ -93,7 +93,7 @@
   </section>
 
   <!-- ルール（スマホ用ボトムシート） -->
-  <dialog id="rules-dialog" class="rules-sheet">
+  <dialog id="rules-dialog" class="rules-sheet paper">
     <div class="rules-sheet-head">
       <h3>ルール</h3>
       <button id="rules-close" class="btn ghost small">閉じる</button>

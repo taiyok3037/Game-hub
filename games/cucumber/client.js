@@ -135,7 +135,7 @@ export function render(root, v, ctx) {
   if (v.result && v.phase !== 'play') {
     const r = v.result;
     result = `
-      <div class="cu-result">
+      <div class="cu-result paper">
         <div class="cu-result-main">
           ${cardHTML(r.card)}
           <div>
