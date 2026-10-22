@@ -79,10 +79,27 @@ function publicPlayers(room) {
   return room.players.map(p => ({ id: p.id, name: p.name, connected: p.connected }));
 }
 
+// ゲームの action / onConnectionChange に渡すルーム情報
+function roomInfo(room) {
+  return {
+    hostId: room.hostId,
+    connectedIds: room.players.filter(p => p.connected).map(p => p.id),
+  };
+}
+
 // ルーム内の全員に「その人専用の画面情報」を送る
 function broadcast(room) {
   room.lastActive = Date.now();
   const game = games[room.gameId];
+  // いま操作を待っている人（手番）。ゲームが turnOf を持っていれば使う
+  let turnIds = [];
+  if (room.state && typeof game.turnOf === 'function') {
+    try {
+      turnIds = game.turnOf(room.state) || [];
+    } catch (e) {
+      console.error(e);
+    }
+  }
   for (const p of room.players) {
     if (!p.socketId) continue;
     let view = null;
@@ -105,9 +122,29 @@ function broadcast(room) {
       you: p.id,
       notice: room.notice || null,
       view,
+      turnIds,
+      yourTurn: turnIds.includes(p.id) && room.phase === 'playing',
     });
   }
   room.notice = null;
+}
+
+// 接続状況が変わったとき（切断・再接続）にゲームへ知らせる。
+// state を変えたら true が返るので、終了判定をしてから broadcast する
+function notifyConnectionChange(room) {
+  if (room.phase !== 'playing' || !room.state) return;
+  const game = games[room.gameId];
+  if (typeof game.onConnectionChange !== 'function') return;
+  let changed = false;
+  try {
+    changed = game.onConnectionChange(room.state, roomInfo(room)) === true;
+  } catch (e) {
+    console.error(e);
+  }
+  if (changed) {
+    if (game.isOver(room.state)) room.phase = 'finished';
+    broadcast(room);
+  }
 }
 
 function findBySocket(socket) {
@@ -204,6 +241,7 @@ io.on('connection', socket => {
     attach(socket, room, player);
     cb({ ok: true, code: room.code, token: player.token });
     broadcast(room);
+    notifyConnectionChange(room); // 再接続をゲームに知らせる
   });
 
   socket.on('room:leave', (_ = {}, cb = () => {}) => {
@@ -232,7 +270,7 @@ io.on('connection', socket => {
     const game = games[room.gameId];
     let result;
     try {
-      result = game.action(room.state, player.id, action);
+      result = game.action(room.state, player.id, action, roomInfo(room));
     } catch (e) {
       console.error(e);
       return cb({ error: 'エラーが起きました' });
@@ -268,6 +306,7 @@ io.on('connection', socket => {
       }, 60_000);
     }
     broadcast(room);
+    notifyConnectionChange(room); // 切断をゲームに知らせる
   });
 
   function leaveCurrent(sock) {

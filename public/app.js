@@ -11,8 +11,16 @@ let games = [];
 let room = null;
 const modules = {}; // 読み込んだゲーム画面モジュールのキャッシュ
 
+// 前回描画した view（ctx.prev 用）。room.code か gameId が変わる・ロビーに戻る・再接続で null に戻す
+let lastView = null;
+let lastViewKey = null;
+function resetPrev() { lastView = null; lastViewKey = null; }
+
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const call = (event, data = {}) => new Promise(res => socket.emit(event, data, res));
+
+// 効果音（A-4 で実装）。それまでは何もしない
+const sound = () => {};
 
 function show(name) {
   for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== `screen-${name}`;
@@ -93,6 +101,7 @@ async function join() {
 
 // ---------- ロビー ----------
 function renderLobby(r) {
+  resetPrev(); // ロビーに戻ったら前回の view を忘れる
   show('lobby');
   const isHost = r.hostId === r.you;
   $('#lobby-game').textContent = r.gameName;
@@ -136,6 +145,7 @@ for (const b of document.querySelectorAll('.leave-btn')) {
     await call('room:leave');
     clearSession();
     room = null;
+    resetPrev();
     history.replaceState(null, '', '/');
     show('home');
   });
@@ -168,18 +178,31 @@ async function renderGame(r) {
 
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
+
+  // 前回描画した view（同じルーム・同じゲームのときだけ）
+  const key = `${r.code}|${r.gameId}`;
+  const prev = key === lastViewKey ? lastView : null;
+
   mod.render($('#game-root'), r.view, {
     me: r.you,
     players: r.players,
     finished,
+    isHost,
+    prev,
+    yourTurn: !!r.yourTurn,
+    turnIds: r.turnIds || [],
     esc,
     toast,
+    sound,
     send: async action => {
       const res = await call('game:action', action);
       if (res.error) toast(res.error);
       return res;
     },
   });
+
+  lastView = r.view;
+  lastViewKey = key;
 }
 
 $('#back-lobby').addEventListener('click', async () => {
@@ -210,6 +233,7 @@ socket.on('connect', async () => {
 
 socket.on('disconnect', () => {
   $('#conn').hidden = false;
+  resetPrev(); // 再接続直後は prev なしで描く
 });
 
 initHome();

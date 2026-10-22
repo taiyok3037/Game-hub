@@ -159,6 +159,12 @@ module.exports = {
     return state.over;
   },
 
+  // いま操作を待っている人（手番）。終了時は []
+  turnOf(state) {
+    if (state.over) return [];
+    return [state.players[state.turn].id];
+  },
+
   // 抜けた人の手札は次の人に渡して続行
   onLeave(state, playerId) {
     if (state.over) return;

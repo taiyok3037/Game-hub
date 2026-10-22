@@ -65,6 +65,12 @@ module.exports = {
     return state.winner !== null || state.draw;
   },
 
+  // いま操作を待っている人（手番）。終了時は []
+  turnOf(state) {
+    if (state.winner !== null || state.draw) return [];
+    return [state.players[state.turn].id];
+  },
+
   // 途中で抜けたら相手の勝ち
   onLeave(state, playerId) {
     if (this.isOver(state)) return;

@@ -237,6 +237,12 @@ module.exports = {
     return state.phase === 'over';
   },
 
+  // いま操作を待っている人（手番）。カードを出す局面だけ。result/over では []
+  turnOf(state) {
+    if (state.phase !== 'play') return [];
+    return [state.players[state.turn].id];
+  },
+
   // 途中で抜けた人は脱落扱いにして、その回は配り直す
   onLeave(state, playerId) {
     const seat = state.players.findIndex(p => p.id === playerId);
