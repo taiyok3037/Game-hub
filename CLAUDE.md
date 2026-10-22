@@ -1,0 +1,33 @@
+# Game Hub — Claude Code 向けメモ
+
+友人とブラウザで遊ぶオンラインゲーム集。Node.js + Express + Socket.IO、フロントは素のHTML/JS（ビルドなし）。Render の無料Web Serviceで公開している。
+
+## 構成
+- `server.js` … 共通基盤。ルーム（4文字コード）・ロビー・再接続・退出処理・`games/` の自動読み込み。**ゲーム固有の処理は書かない**
+- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数
+- `games/<id>/server.js` … ルール。`setup / action / view / isOver`（任意で `onLeave`）を持つ
+- `games/<id>/client.js` … `export function render(root, view, ctx)`。毎回まるごと描き直す
+- `games/<id>/client.css` … そのゲームだけの見た目
+- `templates/new-game/` … 新規ゲームのひな形
+
+## 守ること
+- ルール判定はすべてサーバー（`action`）で行う。クライアントは描画と `ctx.send(action)` だけ
+- 隠し情報（他人の手札・山札など）は `view(state, playerId)` で必ず外す。他人の手札は枚数だけ送る
+- ルール違反は `{ error: '日本語メッセージ' }` を返す（例外を投げない）
+- `games/<id>` のフォルダ名と `id` を一致させる
+- 見た目は卓上カフェ風に統一：卓は `.felt`、案内は `.note`、席は `.seats/.seat/.seat-chip`、トランプは `cardHTML()/backHTML()`、手札は `.hand`、記録は `.log`。色は `style.css` の CSS変数を使う
+- 画面はスマホ幅（390px）で崩れないこと
+- UIの文言は日本語
+
+## 確認方法
+- `npm start` → http://localhost:3000 を通常ウィンドウとシークレットウィンドウで開いて2人で遊ぶ
+- ルールを変えたら、`setup` から `isOver` まで乱数で何千回も回すスクリプトで不整合（終わらない・手番がおかしい・カード枚数が合わない）がないか確かめる
+
+## 公開
+- GitHub の main に push すると Render が自動で再デプロイする
+- 再デプロイ・再起動でルームは消えるので、友人が遊んでいる最中は push しない
+
+## Git
+- 作業は機能ごとにブランチを切る（feature/xxx）
+- main へのマージと push は、ユーザーが「マージして」と言ったときだけ行う
+- push 前に npm test を実行し、失敗したら push しない
