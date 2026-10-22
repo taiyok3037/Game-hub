@@ -27,6 +27,7 @@ function declBadge(p, isCurrent, phase) {
 export function render(root, v, ctx) {
   const { esc } = ctx;
   const name = id => esc((v.players.find(p => p.id === id) || {}).name || '?');
+  playSound(v, ctx); // 効果音（ctx.prev との差分で最大1つ）
   const myTurn = v.phase === 'declare' && v.currentId === ctx.me;
   const justRevealed = ctx.prev && ctx.prev.phase === 'declare' && v.phase !== 'declare';
 
@@ -157,6 +158,25 @@ export function render(root, v, ctx) {
   };
   const forceBtn = root.querySelector('.ip-force');
   if (forceBtn) forceBtn.onclick = () => { forceBtn.disabled = true; ctx.send({ type: 'forceNext' }); };
+}
+
+// 効果音（B-4と同じ考え方）。prev と比べて最大1つ鳴らす
+function playSound(v, ctx) {
+  const p = ctx.prev;
+  if (!p) return; // 初回・再接続直後などは鳴らさない
+  const me = ctx.me;
+  const has = (arr, x) => Array.isArray(arr) && arr.includes(x);
+  const countDecl = (view, choice) => view.players.filter(pl => pl.decl === choice).length;
+  const becameReveal = p.phase !== 'reveal' && v.phase === 'reveal';
+  let snd = null;
+  if (p.phase !== 'over' && v.phase === 'over') snd = 'win';
+  else if (becameReveal && v.result && has(v.result.loserIds, me)) {
+    snd = has(v.result.eliminatedIds, me) ? 'cucumber' : 'penalty';
+  } else if (becameReveal) snd = 'flip';
+  else if (countDecl(v, 'fight') > countDecl(p, 'fight')) snd = 'card';
+  else if (countDecl(v, 'fold') > countDecl(p, 'fold')) snd = 'ready';
+  else if (v.round > p.round) snd = 'card';
+  if (snd) ctx.sound(snd);
 }
 
 // 準備OKパネル（きゅうりと同じ見た目・挙動）

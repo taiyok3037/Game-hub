@@ -51,8 +51,8 @@ function tone(type, from, to, t0, dur, peak = 0.8) {
   osc.stop(t0 + dur + 0.03);
 }
 
-// ホワイトノイズ（card 用の「パサッ」）
-function noise(t0, dur, freq, peak = 0.9) {
+// ホワイトノイズ（card 用の「パサッ」、flip 用の「シュッ」）
+function noise(t0, dur, freq, peak = 0.9, filterType = 'bandpass') {
   const n = Math.max(1, Math.floor(ctx.sampleRate * dur));
   const buf = ctx.createBuffer(1, n, ctx.sampleRate);
   const data = buf.getChannelData(0);
@@ -60,7 +60,7 @@ function noise(t0, dur, freq, peak = 0.9) {
   const src = ctx.createBufferSource();
   src.buffer = buf;
   const bp = ctx.createBiquadFilter();
-  bp.type = 'bandpass';
+  bp.type = filterType;
   bp.frequency.value = freq;
   const g = ctx.createGain();
   g.gain.setValueAtTime(peak, t0);
@@ -90,6 +90,10 @@ export function play(name) {
       break;
     case 'ready': // 準備OK：sine 1046Hz 60ms（「ポン」）
       tone('sine', 1046, 1046, t, 0.06, 0.7);
+      break;
+    case 'flip': // カードをめくる：ホワイトノイズ(highpass) ＋ sine 880（「シュッ・ピン」）
+      noise(t, 0.04, 2500, 0.6, 'highpass');
+      tone('sine', 880, 880, t + 0.03, 0.05, 0.6);
       break;
     case 'penalty': // 失点：triangle 392→262 の2音
       tone('triangle', 392, 392, t, 0.16, 0.8);
