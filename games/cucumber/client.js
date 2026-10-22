@@ -19,6 +19,10 @@ const rankName = v => RANK_NAME[v] || String(v);
 // きゅうりのマーク（持っている本数ぶん表示）
 const cukes = n => Array.from({ length: n }, () => '<span class="cuke" aria-hidden="true"></span>').join('');
 
+// ---- 決まったトリックの保留表示（B-2） ----
+let holdTimer = null;   // 1.5秒後に現在のトリックへ戻すタイマー
+let fromTimer = false;  // そのタイマーからの再描画かどうか
+
 export function render(root, v, ctx) {
   const { esc } = ctx;
   const name = id => esc((v.players.find(p => p.id === id) || {}).name || '?');
@@ -26,7 +30,25 @@ export function render(root, v, ctx) {
   const myTurn = v.phase === 'play' && v.currentId === ctx.me;
   const lastTrick = v.trickNo === v.handSize;
 
+  // ---- 効果音（B-4：prev との差分で、1回につき最大1つ） ----
+  const timerRender = fromTimer;
+  fromTimer = false;
+  if (!timerRender) playSound(v, ctx);
+
+  // ---- 決まったトリックを 1.5 秒見せる（B-2） ----
+  let showHold = false;
+  if (!timerRender) {
+    clearTimeout(holdTimer); // 新しいサーバー更新が来たら保留は解除
+    holdTimer = null;
+    if (ctx.prev && ctx.prev.trickNo !== v.trickNo && v.lastTrick && v.phase === 'play') {
+      showHold = true;
+      holdTimer = setTimeout(() => { fromTimer = true; render(root, v, ctx); }, 1500);
+    }
+  }
+
   // ---- 卓の上のメモ ----
+  const aliveCount = v.players.filter(p => !p.out).length;
+  const remain = aliveCount - (v.trick ? v.trick.length : 0);
   let small, big;
   if (v.phase === 'over') {
     small = '決着';
@@ -34,6 +56,9 @@ export function render(root, v, ctx) {
   } else if (v.phase === 'result') {
     small = `第${v.handSize}トリック終了`;
     big = v.result.loserId === ctx.me ? 'あなたが取ってしまった…' : `${name(v.result.loserId)} さんが取った！`;
+  } else if (showHold) {
+    small = `第${v.lastTrick.no}トリック`;
+    big = `${name(v.lastTrick.winnerId)} さんが取った`;
   } else if (me && me.out) {
     small = me.left ? '退席' : '脱落';
     big = 'みんなを見守ろう';
@@ -43,48 +68,69 @@ export function render(root, v, ctx) {
       ? '好きなカードを出してね'
       : `${rankName(v.highest)} 以上か、一番弱いカード`;
   } else {
-    small = lastTrick ? '最後のトリック' : `${name(v.currentId)} さんの番`;
-    big = lastTrick ? `${name(v.currentId)} さんが考え中…` : '待っています…';
+    small = `このトリックは あと${remain}人`;
+    big = `${name(v.currentId)} さんの番`;
   }
 
-  // ---- 席 ----
+  // ---- 席（手番の分かりやすさ・B-1） ----
+  const played = id => v.phase === 'play' && v.trick && v.trick.some(t => t.id === id);
   const seats = v.players.map(p => {
-    const cls = [
-      p.id === v.currentId ? 'turn' : '',
-      p.out ? 'done' : '',
-    ].join(' ');
-    const info = p.left ? '退席' : p.out ? '脱落' : `${p.score}点`;
+    let cls = '';
+    let badge = '';
+    if (v.phase === 'play' && p.id === v.currentId) {
+      cls = 'turn';
+      badge = '<span class="cu-badge turn">番</span>';
+    } else if (v.phase === 'play' && played(p.id)) {
+      cls = 'cu-played';
+      badge = '<span class="cu-badge played">出した</span>';
+    } else if (v.phase === 'play' && p.id === v.nextId) {
+      cls = 'target';
+      badge = '<span class="cu-badge next">次</span>';
+    }
+    if (p.out) cls += ' done';
     return `
       <div class="seat cu-seat ${cls}">
         <span class="seat-chip">${esc(p.name)}</span>
-        <span class="seat-info">${info} ${cukes(p.cucumbers)}</span>
-        <span class="cu-bar" aria-hidden="true"><span style="width:${Math.min(100, (p.score / v.limit) * 100)}%"></span></span>
-        <span class="cu-sub">${[p.id === ctx.me ? 'あなた' : '', p.dealer ? '親' : '', p.out ? '' : `${p.count}枚`].filter(Boolean).join('・')}</span>
+        ${badge || `<span class="seat-info">${p.left ? '退席' : p.out ? '脱落' : ''}</span>`}
       </div>`;
   }).join('');
 
-  // ---- 場（今のトリック） ----
-  const trickArea = v.phase === 'play' ? `
-    <div class="cu-trick-label">
-      第${v.trickNo}トリック / ${v.handSize}
-      ${lastTrick ? '<span class="cu-danger">取ったら失点！</span>' : ''}
-    </div>
-    <div class="cu-trick">
-      ${v.trick.length === 0 ? '<span class="cu-empty">まだ誰も出していません</span>' : v.trick.map(t => `
-        <div class="cu-play ${t.card.v === v.highest ? 'top' : ''}">
-          ${cardHTML(t.card)}
-          <span>${name(t.id)}</span>
-        </div>`).join('')}
-    </div>` : '';
+  // ---- 場（今のトリック or 決まったトリックの保留表示） ----
+  let trickArea = '';
+  if (v.phase === 'play' && showHold) {
+    trickArea = `
+      <div class="cu-trick-label">第${v.lastTrick.no}トリック終了</div>
+      <div class="cu-trick">
+        ${v.lastTrick.plays.map(t => `
+          <div class="cu-play ${t.id === v.lastTrick.winnerId ? 'top' : ''}">
+            ${cardHTML(t.card)}
+            <span>${name(t.id)}</span>
+          </div>`).join('')}
+      </div>
+      <div class="cu-took">${name(v.lastTrick.winnerId)} さんが取った</div>`;
+  } else if (v.phase === 'play') {
+    trickArea = `
+      <div class="cu-trick-label">
+        第${v.trickNo}トリック / ${v.handSize}
+        ${lastTrick ? '<span class="cu-danger">取ったら失点！</span>' : ''}
+      </div>
+      <div class="cu-trick">
+        ${v.trick.length === 0 ? '<span class="cu-empty">まだ誰も出していません</span>' : v.trick.map(t => `
+          <div class="cu-play ${t.card.v === v.highest ? 'top' : ''}">
+            ${cardHTML(t.card)}
+            <span>${name(t.id)}</span>
+          </div>`).join('')}
+      </div>`;
+  }
 
-  // 1つ前のトリック（小さく）
-  const prev = v.phase === 'play' && v.lastTrick ? `
+  // 1つ前のトリック（小さく）。保留表示中は出さない
+  const prev = v.phase === 'play' && v.lastTrick && !showHold ? `
     <div class="cu-prev">
       <span>第${v.lastTrick.no}トリック → ${name(v.lastTrick.winnerId)}</span>
       <span class="cu-prev-cards">${v.lastTrick.plays.map(t => cardHTML(t.card, { cls: 'sm' })).join('')}</span>
     </div>` : '';
 
-  // ---- 結果 ----
+  // ---- 結果（B-3：全員の準備OKで次の配りへ） ----
   let result = '';
   if (v.result && v.phase !== 'play') {
     const r = v.result;
@@ -102,7 +148,7 @@ export function render(root, v, ctx) {
         <div class="cu-lasttrick">
           ${v.lastTrick.plays.map(t => `<div class="cu-play ${t.id === r.loserId ? 'top' : ''}">${cardHTML(t.card, { cls: 'sm' })}<span>${name(t.id)}</span></div>`).join('')}
         </div>
-        ${v.phase === 'result' ? '<button class="btn primary cu-next">次の配りへ</button>' : ''}
+        ${v.phase === 'result' ? readyPanel(v, ctx, name) : ''}
       </div>`;
   }
 
@@ -122,13 +168,15 @@ export function render(root, v, ctx) {
           ${prev}
         </div>
         ${v.myHand.length ? `
-          <div class="hand-head">
-            <span>あなたの手札（${v.myHand.length}枚）</span>
-            <span class="cu-rule">${myTurn ? '明るいカードが出せます' : ''}</span>
-          </div>
-          <div class="hand cu-hand ${myTurn ? '' : 'idle'}">${hand}</div>` : ''}
+          <div class="cu-handwrap ${myTurn ? 'cu-myturn' : ''}">
+            <div class="hand-head">
+              <span>${myTurn ? 'あなたの番です｜明るいカードを選んでください' : `あなたの手札（${v.myHand.length}枚）`}</span>
+            </div>
+            <div class="hand cu-hand ${myTurn ? '' : 'idle'}">${hand}</div>
+          </div>` : ''}
       </div>
       <div class="g-side">
+        ${scoreTable(v, ctx, esc)}
         <ul class="log">${v.log.slice().reverse().slice(0, 10).map(l => `<li>${esc(l)}</li>`).join('')}</ul>
       </div>
     </div>`;
@@ -143,6 +191,59 @@ export function render(root, v, ctx) {
       ctx.send({ type: 'play', index: Number(b.dataset.i) });
     };
   }
-  const next = root.querySelector('.cu-next');
-  if (next) next.onclick = () => { next.disabled = true; ctx.send({ type: 'next' }); };
+  const readyBtn = root.querySelector('.cu-ready-btn');
+  if (readyBtn) readyBtn.onclick = () => {
+    readyBtn.disabled = true;
+    ctx.send({ type: 'ready', on: !v.readyIds.includes(ctx.me) });
+  };
+  const forceBtn = root.querySelector('.cu-force');
+  if (forceBtn) forceBtn.onclick = () => { forceBtn.disabled = true; ctx.send({ type: 'forceNext' }); };
+}
+
+// 準備OKパネル（結果のなか）
+function readyPanel(v, ctx, name) {
+  const need = v.needIds || [];
+  const ready = v.readyIds || [];
+  const readyCount = need.filter(id => ready.includes(id)).length;
+  const iPressed = ready.includes(ctx.me);
+  const list = need.map(id =>
+    `<li class="${ready.includes(id) ? 'ok' : ''}">${ready.includes(id) ? '✓' : '待ち'} ${name(id)}</li>`).join('');
+  return `
+    <div class="cu-ready">
+      <div class="cu-ready-head">準備OK ${readyCount} / ${need.length}</div>
+      <ul class="cu-ready-list">${list}</ul>
+      <button class="btn ${iPressed ? '' : 'primary'} cu-ready-btn ${iPressed ? '' : 'cu-pulse'}">${iPressed ? '取り消す' : '準備OK'}</button>
+      ${ctx.isHost ? '<button class="btn ghost small cu-force">待たずに次へ</button>' : ''}
+    </div>`;
+}
+
+// 得点表（g-side）。点数の少ない順、脱落者は薄く
+function scoreTable(v, ctx, esc) {
+  const rows = v.players.slice().sort((a, b) => (a.out - b.out) || (a.score - b.score));
+  return `
+    <div class="cu-scores">
+      <h3>得点表</h3>
+      ${rows.map(p => `
+        <div class="cu-score-row ${p.out ? 'out' : ''} ${p.id === ctx.me ? 'me' : ''}">
+          <span class="cu-score-name">${esc(p.name)}${p.dealer ? '<span class="cu-dealer">親</span>' : ''}</span>
+          <span class="cu-score-bar" aria-hidden="true"><span style="width:${Math.min(100, (p.score / v.limit) * 100)}%"></span></span>
+          <span class="cu-score-num">${p.out ? (p.left ? '退席' : '脱落') : `${p.score}点`}</span>
+          <span class="cu-score-meta">${cukes(p.cucumbers)}${p.out ? '' : ` ${p.count}枚`}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+// 効果音（B-4）。prev と比べて最大1つ鳴らす
+function playSound(v, ctx) {
+  const p = ctx.prev;
+  if (!p) return; // 初回・再接続直後などは鳴らさない
+  const prevTrickLen = p.trick ? p.trick.length : 0;
+  let snd = null;
+  if (p.phase !== 'over' && v.phase === 'over') snd = 'win';
+  else if (v.result && !p.result && (v.result.lifeLost || v.result.eliminated)) snd = 'cucumber';
+  else if (p.phase !== 'result' && v.phase === 'result') snd = 'penalty';
+  else if (v.lastTrick && (!p.lastTrick || p.lastTrick.no !== v.lastTrick.no) && v.lastTrick.no !== v.handSize) snd = 'trick';
+  else if (v.trick && v.trick.length > prevTrickLen) snd = 'card';
+  else if ((v.readyIds || []).length > (p.readyIds || []).length) snd = 'ready';
+  if (snd) ctx.sound(snd);
 }

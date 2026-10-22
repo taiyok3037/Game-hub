@@ -63,7 +63,35 @@ function deal(state) {
   state.turn = leader;
   state.phase = 'play';
   state.result = null;
+  state.ready = [];
   state.log.push(`${state.players[state.dealer].name} が配りました（第${++state.handNo}回）`);
+}
+
+// 接続状況を state に取り込む（view で needIds を出すために保持する）
+function syncConn(state, room) {
+  if (room && Array.isArray(room.connectedIds)) state.connectedIds = room.connectedIds.slice();
+}
+
+// 次の配りに「準備OK」が必要な人（脱落しておらず、かつ接続中）
+function needSeats(state) {
+  const conn = state.connectedIds || state.players.map(p => p.id);
+  return state.players.map((_, i) => i).filter(i => !state.out[i] && conn.includes(state.players[i].id));
+}
+
+// 必要な人が全員そろったか
+function readyComplete(state) {
+  const need = needSeats(state);
+  return need.length > 0 && need.every(i => state.ready.includes(i));
+}
+
+// result 中で全員そろっていれば次の配りへ。配ったら true
+function maybeDeal(state) {
+  if (state.phase === 'result' && readyComplete(state)) {
+    deal(state);
+    state.log = state.log.slice(-10);
+    return true;
+  }
+  return false;
 }
 
 function finishHand(state, winnerSeat, plays) {
@@ -109,6 +137,7 @@ function finishHand(state, winnerSeat, plays) {
     if (state.winner !== null) state.log.push(`🏆 ${state.players[state.winner].name} の勝ち！`);
   } else {
     state.phase = 'result';
+    state.ready = []; // 次の配りに向けて準備OKをリセット
     state.dealer = nextAlive(state, state.dealer);
   }
 }
@@ -139,18 +168,35 @@ module.exports = {
       phase: 'play', // 'play' | 'result' | 'over'
       result: null,
       winner: null,
+      ready: [],                           // 準備OKを押した席番号
+      connectedIds: players.map(p => p.id), // 接続中の人（needIds 用）
       log: [],
     };
     deal(state);
     return state;
   },
 
-  action(state, playerId, action) {
+  action(state, playerId, action, room) {
     const seat = state.players.findIndex(p => p.id === playerId);
     if (seat === -1) return { error: 'このゲームの参加者ではありません' };
+    syncConn(state, room);
 
-    if (action.type === 'next') {
+    // 準備OKの付け外し（脱落した人も押せるが、数には入れない）
+    if (action.type === 'ready') {
+      if (state.phase !== 'result') return { error: '今は準備OKを押せません' };
+      if (action.on !== false) {
+        if (!state.ready.includes(seat)) state.ready.push(seat);
+      } else {
+        state.ready = state.ready.filter(s => s !== seat);
+      }
+      maybeDeal(state);
+      return;
+    }
+
+    // ホストが全員を待たずに次の配りへ
+    if (action.type === 'forceNext') {
       if (state.phase !== 'result') return { error: '今は次の配りに進めません' };
+      if (!room || playerId !== room.hostId) return { error: 'ホストだけが操作できます' };
       deal(state);
       state.log = state.log.slice(-10);
       return;
@@ -195,11 +241,15 @@ module.exports = {
     const legal = state.phase === 'play' && seat === state.turn ? legalIndexes(state, seat) : [];
     const plays = state.trick ? state.trick.plays : [];
     const r = state.result;
+    const nextSeat = state.phase === 'play' ? nextAlive(state, state.turn) : -1;
     return {
       limit: LIMIT,
       handSize: HAND_SIZE,
       phase: state.phase,
       trickNo: state.trickNo,
+      readyIds: state.ready.map(id),
+      needIds: needSeats(state).map(id),
+      nextId: nextSeat === -1 ? null : id(nextSeat),
       players: state.players.map((p, i) => ({
         id: p.id,
         name: p.name,
@@ -243,6 +293,12 @@ module.exports = {
     return [state.players[state.turn].id];
   },
 
+  // 誰かが切断・再接続したとき。必要な人が減って全員そろえば次の配りへ進む
+  onConnectionChange(state, room) {
+    syncConn(state, room);
+    return maybeDeal(state);
+  },
+
   // 途中で抜けた人は脱落扱いにして、その回は配り直す
   onLeave(state, playerId) {
     const seat = state.players.findIndex(p => p.id === playerId);
@@ -261,6 +317,9 @@ module.exports = {
       state.handNo--;
       deal(state);
       state.log.push('配り直します');
+    } else if (state.phase === 'result') {
+      state.ready = state.ready.filter(s => s !== seat); // 抜けた人は準備リストから外す
+      maybeDeal(state); // 残りの必要な人が全員そろっていれば次へ
     }
   },
 };

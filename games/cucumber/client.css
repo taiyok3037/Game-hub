@@ -97,14 +97,99 @@
 .cu-hand { flex-wrap: nowrap; padding-left: 0; padding-right: 0; }
 .cu-hand .pcard { margin: 0 -7px; }
 .cu-hand.idle button.pcard:disabled { filter: none; }
+/* 出せるカードは少し浮かせる（B-1） */
+.cu-hand button.pcard.playable { translate: 0 -6px; }
+.cu-hand button.pcard.playable:hover:not(:disabled) { translate: 0 -12px; }
 
-.cu-help {
-  margin-top: 18px;
-  background: var(--paper);
-  border-radius: 12px;
-  padding: 10px 14px;
+/* ---- 手番の分かりやすさ（B-1） ---- */
+.cu-badge {
+  font-size: 11px;
+  font-weight: 900;
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-top: 2px;
+}
+.cu-badge.turn { background: var(--gold); color: var(--ink); }
+.cu-badge.next { border: 1px dashed var(--gold); color: var(--gold); }
+.cu-badge.played { background: transparent; color: var(--felt-text); opacity: .6; }
+.cu-seat.cu-played { opacity: .7; }
+
+.cu-took {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 15px;
+  font-weight: 900;
+  color: var(--gold);
+}
+
+/* 自分の番は手札エリアを金色の枠で囲む */
+.cu-handwrap.cu-myturn {
+  border: 2px solid var(--gold);
+  border-radius: 14px;
+  padding: 4px 6px 8px;
+  box-shadow: 0 0 14px rgba(255,209,102,.35);
+}
+.cu-handwrap.cu-myturn .hand-head { color: var(--gold); }
+
+/* ---- 準備OK（B-3） ---- */
+.cu-ready { display: grid; gap: 8px; }
+.cu-ready-head { font-weight: 900; font-size: 15px; }
+.cu-ready-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   font-size: 13px;
+  font-weight: 700;
+}
+.cu-ready-list li {
+  background: var(--paper);
+  border: 2px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 2px 10px;
+  color: var(--ink-soft);
+}
+.cu-ready-list li.ok { color: #2f5f1d; border-color: #5aa13c; }
+.cu-ready-btn { width: 100%; }
+.cu-force { justify-self: center; }
+
+/* 自分が未押下のあいだ、金色パルスで目立たせる（A-3 と同じ考え方） */
+.cu-pulse { animation: cu-pulse 2s ease-in-out infinite; }
+@keyframes cu-pulse {
+  0%, 100% { box-shadow: 0 4px 0 var(--red-dark), 0 0 0 0 rgba(255,209,102,0); }
+  50%      { box-shadow: 0 4px 0 var(--red-dark), 0 0 16px 3px rgba(255,209,102,.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .cu-pulse { animation: none; outline: 2px solid var(--gold); }
+}
+
+/* ---- 得点表（g-side・B-5） ---- */
+.cu-scores {
+  background: var(--paper);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 12px 14px;
   box-shadow: 0 4px 0 rgba(0,0,0,.25);
 }
-.cu-help summary { font-weight: 900; cursor: pointer; }
-.cu-help ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); }
+.cu-scores h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 16px; }
+.cu-score-row {
+  display: grid;
+  grid-template-columns: 1fr 70px auto;
+  grid-template-areas: "name bar num" "meta bar num";
+  align-items: center;
+  gap: 2px 8px;
+  padding: 5px 0;
+  border-top: 1px dashed var(--paper-line);
+  font-size: 13px;
+}
+.cu-score-row:first-of-type { border-top: none; }
+.cu-score-row.out { opacity: .5; }
+.cu-score-row.me .cu-score-name { color: var(--red); }
+.cu-score-name { grid-area: name; font-weight: 900; }
+.cu-dealer { font-size: 10px; margin-left: 6px; background: var(--wood); color: #fff; border-radius: 4px; padding: 0 5px; }
+.cu-score-bar { grid-area: bar; display: block; height: 6px; border-radius: 99px; background: rgba(0,0,0,.12); overflow: hidden; }
+.cu-score-bar span { display: block; height: 100%; background: var(--gold); }
+.cu-score-num { grid-area: num; font-weight: 900; text-align: right; }
+.cu-score-meta { grid-area: meta; font-size: 11px; color: var(--ink-soft); }
