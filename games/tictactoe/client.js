@@ -10,6 +10,17 @@ export const rules = `<ul>
 
 export function render(root, v, ctx) {
   const { esc } = ctx;
+
+  // 効果音（B-6）：石を置いたら card、決着したら win
+  if (ctx.prev) {
+    const p = ctx.prev;
+    const justOver = (!p.winner && v.winner) || (!p.draw && v.draw);
+    const filledPrev = p.board.filter(c => c !== null).length;
+    const filledNow = v.board.filter(c => c !== null).length;
+    if (justOver) ctx.sound('win');
+    else if (filledNow > filledPrev) ctx.sound('card');
+  }
+
   const winner = v.players.find(p => p.id === v.winner);
   const current = v.players.find(p => p.id === v.currentId);
   const myTurn = !ctx.finished && v.currentId === ctx.me;

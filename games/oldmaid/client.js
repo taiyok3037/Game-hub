@@ -21,6 +21,17 @@ const overlap = n => (n > 1 ? Math.min(-8, Math.floor((330 - 58 * n) / (n - 1)))
 
 export function render(root, v, ctx) {
   const { esc } = ctx;
+
+  // 効果音（B-6）：引いたら card、ペアを捨てたら trick、決着したら win
+  if (ctx.prev) {
+    const p = ctx.prev;
+    const sumPrev = p.players.reduce((a, x) => a + x.count, 0);
+    const sumNow = v.players.reduce((a, x) => a + x.count, 0);
+    if (!p.over && v.over) ctx.sound('win');
+    else if (sumNow < sumPrev) ctx.sound('trick'); // ペアを捨てた（総枚数が減る）
+    else if (v.currentId !== p.currentId) ctx.sound('card'); // 引いた（ペアにならず手番が回った）
+  }
+
   const me = v.players.find(p => p.id === ctx.me);
   const current = v.players.find(p => p.id === v.currentId);
   const target = v.players.find(p => p.id === v.targetId);
