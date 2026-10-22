@@ -18,6 +18,44 @@ let lastView = null;
 let lastViewKey = null;
 function resetPrev() { lastView = null; lastViewKey = null; }
 
+// ---------- 手番の演出（A-3） ----------
+const BASE_TITLE = document.title;
+let lastYourTurn = false;
+let bannerTimer;
+
+function showTurnBanner() {
+  const b = $('#turn-banner');
+  if (!b) return;
+  b.hidden = false;
+  b.classList.remove('show');
+  void b.offsetWidth; // アニメーションを毎回やり直す
+  b.classList.add('show');
+  clearTimeout(bannerTimer);
+  bannerTimer = setTimeout(() => { b.hidden = true; b.classList.remove('show'); }, 1250);
+}
+
+// yourTurn の変化に合わせて、バナー・音・金枠・タブタイトルを更新する
+function applyTurnFx(yourTurn) {
+  if (yourTurn && !lastYourTurn) {
+    sound('turn');
+    showTurnBanner();
+    navigator.vibrate?.(60);
+  }
+  $('#screen-game').classList.toggle('my-turn', yourTurn);
+  if (yourTurn) document.title = '● あなたの番｜ゲームハブ';
+  else if (lastYourTurn) document.title = BASE_TITLE;
+  lastYourTurn = yourTurn;
+}
+
+// ゲームから離れるとき演出を消す
+function clearTurnFx() {
+  $('#screen-game').classList.remove('my-turn');
+  if (lastYourTurn) document.title = BASE_TITLE;
+  lastYourTurn = false;
+  const b = $('#turn-banner');
+  if (b) { b.hidden = true; b.classList.remove('show'); }
+}
+
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const call = (event, data = {}) => new Promise(res => socket.emit(event, data, res));
 
@@ -122,6 +160,7 @@ async function join() {
 // ---------- ロビー ----------
 function renderLobby(r) {
   resetPrev(); // ロビーに戻ったら前回の view を忘れる
+  clearTurnFx();
   show('lobby');
   const isHost = r.hostId === r.you;
   $('#lobby-game').textContent = r.gameName;
@@ -166,6 +205,7 @@ for (const b of document.querySelectorAll('.leave-btn')) {
     clearSession();
     room = null;
     resetPrev();
+    clearTurnFx();
     history.replaceState(null, '', '/');
     show('home');
   });
@@ -195,6 +235,8 @@ async function renderGame(r) {
   $('#game-end').hidden = !finished;
   $('#back-lobby').hidden = !isHost;
   $('#end-wait').hidden = isHost;
+
+  applyTurnFx(!!r.yourTurn); // 手番の演出（バナー・金枠・タブタイトル）
 
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
@@ -245,6 +287,7 @@ socket.on('connect', async () => {
   const res = await call('room:rejoin', s);
   if (res.error) {
     clearSession();
+    clearTurnFx();
     show('home');
     if (room) toast('ルームが終了していました');
     room = null;
