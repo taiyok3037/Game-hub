@@ -1,0 +1,110 @@
+.cu-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(72px, 1fr));
+  gap: 10px 6px;
+}
+.cu-seat { min-width: 0; }
+.cu-seat .seat-chip { font-size: 12px; }
+.cu-sub { font-size: 11px; color: var(--felt-text); opacity: .8; }
+.cu-bar {
+  display: block;
+  width: 70px;
+  height: 5px;
+  border-radius: 99px;
+  background: rgba(0,0,0,.25);
+  overflow: hidden;
+}
+.cu-bar span { display: block; height: 100%; background: var(--gold); }
+
+/* きゅうりマーク */
+.cuke {
+  display: inline-block;
+  width: 18px;
+  height: 8px;
+  margin-left: 2px;
+  vertical-align: middle;
+  border-radius: 99px;
+  background-color: #5aa13c;
+  background-image: radial-gradient(#cde8a8 1px, transparent 1.5px);
+  background-size: 5px 4px;
+  border: 1px solid #2f5f1d;
+  transform: rotate(-12deg);
+}
+
+.cu-trick-label {
+  text-align: center;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.cu-danger {
+  display: inline-block;
+  margin-left: 6px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 6px;
+  padding: 1px 8px;
+}
+.cu-trick {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 110px;
+  align-items: flex-start;
+  padding: 6px 0;
+}
+.cu-empty { align-self: center; font-size: 13px; opacity: .7; }
+.cu-play { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; font-weight: 700; }
+.cu-play .pcard { box-shadow: 0 3px 6px rgba(0,0,0,.35); }
+.cu-play.top .pcard { outline: 3px solid var(--gold); outline-offset: 1px; }
+
+.cu-prev {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(0,0,0,.18);
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.cu-prev-cards { display: flex; gap: 2px; }
+.cu-prev-cards .pcard { width: 26px; height: 36px; padding: 2px 3px; border-radius: 4px; box-shadow: none; }
+.cu-prev-cards .pcard .r { font-size: 10px; }
+.cu-prev-cards .pcard .s { font-size: 11px; }
+
+.cu-result {
+  background: var(--paper-light);
+  color: var(--ink);
+  border-radius: 12px;
+  padding: 14px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+  display: grid;
+  gap: 12px;
+}
+.cu-result-main { display: flex; gap: 12px; align-items: center; }
+.cu-result-main strong { font-size: 18px; font-weight: 900; }
+.cu-result-main p { margin: 4px 0 0; font-size: 13px; color: var(--ink-soft); }
+.cu-result-main .cu-hit { color: #2f5f1d; font-weight: 900; }
+.cu-lasttrick { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
+.cu-lasttrick .cu-play span { color: var(--ink-soft); }
+.cu-next { width: 100%; }
+
+.cu-rule { font-size: 12px; font-weight: 700; opacity: .85; }
+.cu-hand { flex-wrap: nowrap; padding-left: 0; padding-right: 0; }
+.cu-hand .pcard { margin: 0 -7px; }
+.cu-hand.idle button.pcard:disabled { filter: none; }
+
+.cu-help {
+  margin-top: 18px;
+  background: var(--paper);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+}
+.cu-help summary { font-weight: 900; cursor: pointer; }
+.cu-help ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); }

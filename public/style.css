@@ -1,0 +1,484 @@
+/* =============================================================
+   卓上カフェ テーマ
+   木のテーブル（背景）＋ フェルトの卓（ゲーム面）＋ 紙（パネル・カード）
+   ============================================================= */
+:root {
+  --wood: #7b4a2a;
+  --wood-dark: #4a2b16;
+  --wood-edge: #5a341b;
+  --paper: #f5e9d3;
+  --paper-light: #fffaf0;
+  --paper-line: #c9ab82;
+  --ink: #3a2414;
+  --ink-soft: #6b4a2e;
+  --felt: #2e6b4f;
+  --felt-text: #d9ecd9;
+  --red: #c0462c;
+  --red-dark: #7c2a19;
+  --gold: #ffd166;
+  --card-back: #b13b2a;
+  --radius: 14px;
+  --font-title: "Kaisei Decol", serif;
+  --font-body: "Zen Maru Gothic", system-ui, -apple-system, "Hiragino Sans", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  font-family: var(--font-body);
+  font-weight: 500;
+  color: var(--ink);
+  background-color: var(--wood);
+  background-image:
+    repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 2px, transparent 2px 38px),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.04) 0 1px, transparent 1px 13px);
+  min-height: 100dvh;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.screen {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 24px 16px calc(32px + env(safe-area-inset-bottom));
+}
+[hidden] { display: none !important; }
+
+h1, h2 { margin: 0; }
+.muted { color: var(--ink-soft); }
+.center { text-align: center; }
+
+/* ---------- 看板（タイトル） ---------- */
+.sign {
+  position: relative;
+  width: fit-content;
+  margin: 18px auto 22px;
+  background: var(--paper);
+  border: 4px solid var(--wood-dark);
+  border-radius: 10px;
+  box-shadow: 0 6px 0 var(--wood-dark);
+  padding: 12px 28px 10px;
+  text-align: center;
+}
+.sign::before, .sign::after {
+  content: "";
+  position: absolute;
+  top: -16px;
+  width: 8px;
+  height: 14px;
+  background: var(--wood-dark);
+}
+.sign::before { left: 26px; }
+.sign::after { right: 26px; }
+.sign h1 {
+  font-family: var(--font-title);
+  font-weight: 700;
+  font-size: 34px;
+  line-height: 1.1;
+  letter-spacing: .04em;
+}
+.sign p {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .3em;
+  color: #8a5a34;
+}
+
+/* ---------- 紙のパネル ---------- */
+.panel {
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+.field { display: grid; gap: 6px; }
+.field > span, .label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-soft);
+}
+input {
+  font: inherit;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--paper-light);
+  border: 2px solid var(--paper-line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  width: 100%;
+  outline: none;
+}
+input:focus { border-color: var(--red); }
+
+/* 招待コード（チケット風） */
+.ticket {
+  display: flex;
+  padding: 0;
+  overflow: hidden;
+}
+.ticket .ticket-main { flex: 1; padding: 12px 14px; display: grid; gap: 6px; min-width: 0; }
+.ticket .ticket-stub {
+  border-left: 3px dashed var(--paper-line);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+}
+#join-code {
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: .3em;
+  text-align: center;
+  text-transform: uppercase;
+  border-style: dashed;
+  padding: 6px;
+}
+
+/* ---------- ボタン ---------- */
+.btn {
+  font: inherit;
+  font-weight: 900;
+  font-size: 15px;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 16px;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--ink);
+  background: var(--paper);
+  box-shadow: 0 4px 0 var(--wood-dark);
+}
+.btn.primary { color: #fff; background: var(--red); box-shadow: 0 4px 0 var(--red-dark); }
+.btn.primary:disabled { opacity: .45; cursor: not-allowed; }
+.btn.ghost {
+  color: var(--paper);
+  background: transparent;
+  border: 2px solid rgba(245,233,211,.5);
+  box-shadow: none;
+}
+.panel .btn.ghost { color: var(--ink-soft); border-color: var(--paper-line); }
+.btn.big { width: 100%; padding: 16px; font-size: 18px; margin-top: 10px; }
+.btn.small { padding: 6px 12px; font-size: 13px; }
+.btn:active:not(:disabled) { transform: translateY(2px); box-shadow: 0 2px 0 var(--wood-dark); }
+.btn.primary:active:not(:disabled) { box-shadow: 0 2px 0 var(--red-dark); }
+.btn.ghost:active { box-shadow: none; }
+
+/* ---------- 見出し（本日の卓） ---------- */
+.rule-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--paper);
+  font-family: var(--font-title);
+  font-size: 18px;
+  margin: 8px 0 14px;
+}
+.rule-title::after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  background: rgba(245,233,211,.4);
+}
+
+/* ---------- ゲームの箱 ---------- */
+.game-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 14px;
+}
+.game-box {
+  font: inherit;
+  text-align: left;
+  color: var(--ink);
+  background: var(--paper);
+  border: none;
+  border-radius: 12px;
+  padding: 0;
+  overflow: hidden;
+  box-shadow: 0 6px 0 rgba(0,0,0,.3);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  transition: transform .15s;
+}
+.game-box:hover { transform: translateY(-3px); }
+.game-cover {
+  height: 92px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+.game-cover::after {
+  content: "";
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: 6px;
+  background: rgba(0,0,0,.15);
+}
+.game-cover-card {
+  width: 52px;
+  height: 70px;
+  background: var(--paper-light);
+  border-radius: 6px;
+  transform: rotate(-10deg);
+  box-shadow: 0 2px 4px rgba(0,0,0,.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 900;
+}
+.game-body { padding: 10px 12px 12px; display: grid; gap: 4px; }
+.game-name { font-weight: 900; font-size: 17px; }
+.game-meta { font-size: 12px; color: var(--ink-soft); }
+.game-desc { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
+
+.hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 20px;
+  background: rgba(0,0,0,.25);
+  color: var(--paper);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 13px;
+}
+.hint svg { flex-shrink: 0; }
+
+/* ---------- ロビー ---------- */
+.lobby { text-align: center; padding: 20px 18px; }
+.lobby .label { display: block; }
+.room-code {
+  font-family: var(--font-title);
+  font-size: 52px;
+  letter-spacing: .25em;
+  padding-left: .25em;
+  color: var(--red);
+  margin: 2px 0 10px;
+}
+.lobby-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 20px;
+  margin-bottom: 8px;
+  font-weight: 900;
+}
+.player-list { list-style: none; padding: 0; margin: 0 0 8px; text-align: left; display: grid; gap: 8px; }
+.player-list li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--paper-light);
+  border: 2px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 900;
+}
+.player-list li.offline { opacity: .5; }
+.player-list .crown { color: #b8860b; }
+.you {
+  font-size: 11px;
+  background: var(--red);
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.leave-btn { margin-top: 14px; }
+
+/* ---------- ゲーム画面 ---------- */
+.game-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  color: var(--paper);
+}
+.game-bar-title { display: flex; align-items: baseline; gap: 8px; }
+#game-title { font-family: var(--font-title); font-size: 20px; }
+.room-tag {
+  font-size: 12px;
+  font-weight: 700;
+  background: rgba(0,0,0,.3);
+  border-radius: 6px;
+  padding: 2px 8px;
+  letter-spacing: .1em;
+}
+.game-bar .leave-btn { margin-top: 0; }
+.offline-list { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.offline-list:empty { display: none; }
+
+/* フェルトの卓：ゲームはこの中に描かれる */
+.felt {
+  background: var(--felt);
+  border: 10px solid var(--wood-edge);
+  border-radius: 26px;
+  box-shadow: inset 0 0 40px rgba(0,0,0,.45), 0 6px 0 #3f2412;
+  padding: 14px 12px;
+  color: var(--felt-text);
+  min-height: 420px;
+}
+
+.end-bar { text-align: center; margin-top: 18px; color: var(--paper); }
+.end-bar .muted { color: var(--paper); }
+
+/* ---------- 通知 ---------- */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(24px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  background: var(--paper-light);
+  color: var(--ink);
+  border: 2px solid var(--wood-dark);
+  box-shadow: 0 4px 0 var(--wood-dark);
+  padding: 10px 18px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  z-index: 10;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  text-align: center;
+}
+.conn {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  background: var(--red);
+  color: #fff;
+  text-align: center;
+  padding: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  z-index: 10;
+}
+
+/* =============================================================
+   ゲーム共通部品（各ゲームの client.js から使う）
+   ============================================================= */
+
+/* 卓の上のメモ（「あなたの番」など） */
+.note {
+  width: fit-content;
+  max-width: 100%;
+  margin: 4px auto 14px;
+  background: var(--paper-light);
+  color: var(--ink);
+  border-radius: 6px;
+  padding: 8px 16px;
+  transform: rotate(-1.2deg);
+  box-shadow: 0 3px 6px rgba(0,0,0,.35);
+  text-align: center;
+}
+.note small {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--red);
+  letter-spacing: .2em;
+}
+.note strong { font-size: 17px; font-weight: 900; }
+.note.plain small { color: var(--ink-soft); }
+
+/* 席（プレイヤー名の札） */
+.seats { display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.seat { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 76px; }
+.seat-chip {
+  background: var(--paper);
+  color: var(--ink);
+  border: 2px solid var(--paper);
+  border-radius: 999px;
+  padding: 3px 12px;
+  font-size: 13px;
+  font-weight: 900;
+  white-space: nowrap;
+}
+.seat.turn .seat-chip { background: var(--gold); border-color: var(--paper-light); }
+.seat.target .seat-chip { outline: 2px dashed var(--gold); outline-offset: 2px; }
+.seat.done { opacity: .55; }
+.seat.done .seat-chip { background: transparent; color: var(--paper); }
+.seat-info { font-size: 12px; font-weight: 700; color: var(--felt-text); }
+
+/* トランプ（表） */
+.pcard {
+  width: 58px;
+  height: 84px;
+  flex-shrink: 0;
+  background: var(--paper-light);
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  box-shadow: -1px 3px 6px rgba(0,0,0,.35);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 6px 7px;
+  color: #2a1a10;
+  font-weight: 900;
+  font-family: var(--font-body);
+}
+.pcard .r { font-size: 17px; line-height: 1; }
+.pcard .s { font-size: 24px; line-height: 1; align-self: flex-end; }
+.pcard.red { color: var(--red); }
+.pcard.joker { background: linear-gradient(135deg, var(--paper-light), #ffe9a8); }
+.pcard.joker .r { font-size: 10px; letter-spacing: .05em; }
+.pcard.sm { width: 38px; height: 54px; padding: 4px 5px; border-radius: 6px; }
+.pcard.sm .r { font-size: 13px; }
+.pcard.sm .s { font-size: 16px; }
+
+/* トランプ（裏） */
+.pcard.back, button.pcard.back {
+  border: 3px solid var(--paper-light);
+  background-color: var(--card-back);
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.18) 0 4px, transparent 4px 8px);
+  padding: 0;
+}
+button.pcard { font: inherit; cursor: pointer; }
+button.pcard:disabled { cursor: default; }
+.pcard.back.mini { width: 22px; height: 32px; border-width: 2px; border-radius: 3px; box-shadow: none; }
+
+/* 押せるカード */
+/* translate は transform と別の指定なので、扇形の回転（style属性）と重ねて使える */
+button.pcard.playable { transition: translate .12s; }
+button.pcard.playable:hover:not(:disabled) { translate: 0 -12px; }
+button.pcard.playable.picked { translate: 0 -16px; outline: 3px solid var(--gold); outline-offset: 2px; }
+button.pcard:not(.back):disabled { filter: brightness(.82); }
+
+/* 手札エリア（卓の下） */
+.hand-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--paper);
+  font-weight: 900;
+  font-size: 14px;
+  margin: 16px 4px 6px;
+}
+.hand-head .btn { color: var(--ink); }
+.hand {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  row-gap: 8px;
+  padding: 16px 10px 4px;
+}
+.hand .pcard { margin: 0 -5px; }
+
+/* 記録（レシート風） */
+.log {
+  list-style: none;
+  margin: 16px 0 0;
+  background: var(--paper-light);
+  border-top: 3px dashed var(--paper-line);
+  border-radius: 4px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  box-shadow: 0 2px 4px rgba(0,0,0,.3);
+}
+.log li:first-child { color: var(--ink); font-weight: 700; }

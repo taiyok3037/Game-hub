@@ -1,0 +1,28 @@
+.om-mini-fan { display: flex; height: 40px; align-items: flex-end; padding-left: 10px; }
+.om-mini-fan .pcard { margin-left: -10px; transform-origin: bottom center; }
+
+.om-pick {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  row-gap: 10px;
+  padding: 18px 8px 4px;
+}
+.om-pick .pcard { margin: 0 -5px; }
+/* 枚数が多いときは扇にせず、きれいに並べる */
+.om-pick.many { gap: 6px; padding-top: 14px; }
+.om-pick.many .pcard { margin: 0; width: 44px; height: 64px; }
+.om-tip { text-align: center; font-size: 13px; font-weight: 700; margin: 8px 0 0; }
+
+.om-last {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.om-hand { flex-wrap: nowrap; padding-left: 0; padding-right: 0; }
+.om-hand .pcard { transform-origin: bottom center; margin: 0 0 0 var(--ov); }
+.om-hand .pcard:first-child { margin-left: 0; }

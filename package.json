@@ -1,0 +1,17 @@
+{
+  "name": "game-hub",
+  "version": "1.0.0",
+  "description": "友人とオンラインで遊べる、ゲームを追加していけるミニゲーム基盤",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "socket.io": "^4.8.0"
+  }
+}
