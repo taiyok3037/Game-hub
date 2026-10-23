@@ -350,6 +350,33 @@ input:focus { border-color: var(--red); }
 .lobby-switch-desc { font-size: 12px; margin: 0; }
 .lobby-host .btn.ghost { justify-self: start; }
 
+/* ゲーム設定（options） */
+.lobby-settings { margin-top: 18px; padding: 12px 14px; text-align: left; }
+.lobby-settings-head { font-weight: 900; font-size: 15px; margin-bottom: 8px; }
+.lobby-settings-read { margin: 0; font-size: 14px; font-weight: 700; color: var(--ink-soft); }
+.opt-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; padding: 6px 0; border-top: 1px dashed var(--paper-line);
+}
+.opt-row:first-of-type { border-top: none; }
+.opt-label { font-weight: 700; font-size: 14px; }
+.opt-int { display: flex; align-items: center; gap: 6px; }
+.opt-int-val { min-width: 2.2em; text-align: center; font-weight: 900; font-size: 16px; }
+.opt-step {
+  width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+  font: inherit; font-size: 20px; font-weight: 900; line-height: 1;
+  color: var(--ink); background: var(--paper); border: 2px solid var(--paper-line);
+  cursor: pointer;
+}
+.opt-step:disabled { opacity: .4; cursor: not-allowed; }
+.opt-step:active:not(:disabled) { transform: translateY(1px); }
+.opt-select {
+  font: inherit; font-weight: 700; font-size: 14px; color: var(--ink);
+  background: var(--paper); border: 2px solid var(--paper-line);
+  border-radius: 10px; padding: 7px 10px; min-height: 40px; max-width: 60%;
+}
+.opt-bool { padding: 0; }
+
 /* ---------- ゲーム画面 ---------- */
 .game-bar {
   display: flex;

@@ -286,6 +286,94 @@ function stopLobbyCountdown() {
   lobbyCdTimer = null;
 }
 
+// ゲーム設定の表示が必要な定義だけ（showIf を考慮）
+function visibleOptionDefs(r) {
+  const defs = r.optionDefs || [];
+  const opts = r.options || {};
+  return defs.filter(d => !d.showIf || opts[d.showIf.key] === d.showIf.equals);
+}
+
+// select の値を表示用の文字列にする（choices の label・bool・int）
+function optionValueLabel(def, value) {
+  if (def.type === 'select') {
+    const c = (def.choices || []).find(c => c.value === value);
+    return c ? c.label : String(value);
+  }
+  if (def.type === 'bool') return value ? 'オン' : 'オフ';
+  return String(value);
+}
+
+// ロビーの「ゲーム設定」パネル。ホストは入力UI、ほかの人は読み取り専用
+function optionsPanel(r, isHost) {
+  const defs = visibleOptionDefs(r);
+  if (!defs.length) return '';
+  const opts = r.options || {};
+  if (!isHost) {
+    const summary = defs.map(d => `${esc(d.label)} ${esc(optionValueLabel(d, opts[d.key]))}`).join(' ／ ');
+    return `
+      <div class="lobby-settings paper">
+        <div class="lobby-settings-head">ゲーム設定</div>
+        <p class="lobby-settings-read">${summary}</p>
+      </div>`;
+  }
+  const rows = defs.map(d => {
+    const val = opts[d.key];
+    let control = '';
+    if (d.type === 'int') {
+      control = `
+        <div class="opt-int">
+          <button class="opt-step" data-opt="${esc(d.key)}" data-delta="-1" aria-label="減らす" ${val <= d.min ? 'disabled' : ''}>−</button>
+          <span class="opt-int-val" id="opt-val-${esc(d.key)}">${esc(String(val))}</span>
+          <button class="opt-step" data-opt="${esc(d.key)}" data-delta="1" aria-label="増やす" ${val >= d.max ? 'disabled' : ''}>＋</button>
+        </div>`;
+    } else if (d.type === 'select') {
+      const options = (d.choices || []).map((c, i) =>
+        `<option value="${i}" ${c.value === val ? 'selected' : ''}>${esc(c.label)}</option>`).join('');
+      control = `<select class="opt-select" data-opt="${esc(d.key)}">${options}</select>`;
+    } else if (d.type === 'bool') {
+      control = `
+        <button class="lobby-switch opt-bool" data-opt="${esc(d.key)}" role="switch" aria-checked="${!!val}">
+          <span class="lobby-switch-track"><span class="lobby-switch-thumb"></span></span>
+        </button>`;
+    }
+    return `<div class="opt-row"><span class="opt-label">${esc(d.label)}</span>${control}</div>`;
+  }).join('');
+  return `
+    <div class="lobby-settings paper">
+      <div class="lobby-settings-head">ゲーム設定</div>
+      ${rows}
+    </div>`;
+}
+
+// ゲーム設定の操作を配線する（ホストのみ要素が存在する）
+function wireOptions(r) {
+  const defs = visibleOptionDefs(r);
+  const opts = r.options || {};
+  const send = async (key, value) => {
+    const res = await call('lobby:option', { key, value });
+    if (res.error) toast(res.error);
+  };
+  for (const b of document.querySelectorAll('.opt-step')) {
+    b.onclick = () => {
+      const def = defs.find(d => d.key === b.dataset.opt);
+      if (!def) return;
+      const next = Number(opts[def.key]) + Number(b.dataset.delta);
+      send(def.key, Math.min(def.max, Math.max(def.min, next)));
+    };
+  }
+  for (const s of document.querySelectorAll('.opt-select')) {
+    s.onchange = () => {
+      const def = defs.find(d => d.key === s.dataset.opt);
+      if (!def) return;
+      const choice = def.choices[Number(s.value)];
+      if (choice) send(def.key, choice.value);
+    };
+  }
+  for (const b of document.querySelectorAll('.opt-bool')) {
+    b.onclick = () => send(b.dataset.opt, b.getAttribute('aria-checked') !== 'true');
+  }
+}
+
 function renderLobby(r) {
   resetPrev(); // ロビーに戻ったら前回の view を忘れる
   clearTurnFx();
@@ -356,6 +444,8 @@ function renderLobby(r) {
       </div>
     </div>
 
+    ${optionsPanel(r, isHost)}
+
     ${isHost ? `
       <div class="lobby-host paper">
         <button class="lobby-switch" id="sees-all" role="switch" aria-checked="${r.settings.spectatorSeesAll}">
@@ -381,6 +471,7 @@ function renderLobby(r) {
     const res = await call('lobby:ready', { on: !iPressed });
     if (res.error) toast(res.error);
   };
+  wireOptions(r);
   const sees = $('#sees-all');
   if (sees) sees.onclick = async () => {
     const res = await call('lobby:settings', { spectatorSeesAll: sees.getAttribute('aria-checked') !== 'true' });

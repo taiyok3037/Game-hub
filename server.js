@@ -37,6 +37,43 @@ for (const dir of fs.readdirSync(GAMES_DIR)) {
   console.log(`ゲーム登録: ${game.name} (${game.id})`);
 }
 
+// ---------- ゲーム設定（options） ----------
+// ゲームが宣言する options から、表示用の定義を作る（choices が関数なら値に変換する）
+function gameOptionDefs(game) {
+  if (!Array.isArray(game.options)) return [];
+  return game.options.map(def => {
+    const out = { ...def };
+    if (typeof def.choices === 'function') {
+      try { out.choices = def.choices(); } catch (e) { console.error(e); out.choices = []; }
+    }
+    return out;
+  });
+}
+
+// ゲームの default から現在値（room.options）の初期値を作る
+function defaultOptions(game) {
+  const opts = {};
+  for (const def of gameOptionDefs(game)) opts[def.key] = def.default;
+  return opts;
+}
+
+// 1項目の変更を検証する。OK なら { value: 正規化した値 }、違反なら { error }
+function validateOption(game, key, value) {
+  const def = gameOptionDefs(game).find(d => d.key === key);
+  if (!def) return { error: 'その設定はありません' };
+  if (def.type === 'int') {
+    if (!Number.isInteger(value)) return { error: '整数で指定してください' };
+    if (value < def.min || value > def.max) return { error: `${def.min}〜${def.max} で指定してください` };
+    return { value };
+  }
+  if (def.type === 'select') {
+    if (!def.choices.some(c => c.value === value)) return { error: '選べない値です' };
+    return { value };
+  }
+  if (def.type === 'bool') return { value: !!value };
+  return { error: '不明な設定です' };
+}
+
 // ---------- HTTP ----------
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -230,7 +267,7 @@ function startGame(room) {
     return;
   }
   room.gamePlayerIds = players.map(m => m.id);
-  room.state = game.setup(players.map(m => ({ id: m.id, name: m.name })));
+  room.state = game.setup(players.map(m => ({ id: m.id, name: m.name })), room.options);
   room.phase = 'playing';
   room.gameNo = (room.gameNo || 0) + 1;
   pushSystem(room, `第${room.gameNo}戦 開始`);
@@ -290,6 +327,8 @@ function broadcast(room) {
       members,
       gamePlayerIds: room.gamePlayerIds,
       settings: room.settings,
+      options: room.options,
+      optionDefs: gameOptionDefs(game),
       countdownEndsAt: room.countdown ? room.countdown.endsAt : null,
       you: m.id,
       yourRole: roleOf(game, room, m.id),
@@ -394,6 +433,7 @@ io.on('connection', socket => {
       state: null,
       gamePlayerIds: [],
       settings: { spectatorSeesAll: false },
+      options: defaultOptions(game),
       countdown: null,
       chat: [],
       gameNo: 0,
@@ -491,6 +531,21 @@ io.on('connection', socket => {
     if (room.hostId !== member.id) return cb({ error: 'ホストだけが設定できます' });
     if (room.phase !== 'lobby') return cb({ error: 'ロビーでのみ変更できます' });
     room.settings.spectatorSeesAll = !!spectatorSeesAll;
+    for (const m of room.members) m.ready = false; // 条件が変わったので確認し直す
+    cb({ ok: true });
+    checkLobby(room);
+    broadcast(room);
+  });
+
+  // ロビー：ゲーム設定を変える（ホストだけ）。変えると全員の ready を外す
+  socket.on('lobby:option', ({ key, value } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.hostId !== member.id) return cb({ error: 'ホストだけが設定できます' });
+    if (room.phase !== 'lobby') return cb({ error: 'ロビーでのみ変更できます' });
+    const res = validateOption(games[room.gameId], key, value);
+    if (res.error) return cb({ error: res.error });
+    room.options[key] = res.value;
     for (const m of room.members) m.ready = false; // 条件が変わったので確認し直す
     cb({ ok: true });
     checkLobby(room);
