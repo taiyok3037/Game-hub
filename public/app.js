@@ -3,7 +3,6 @@
 //  ゲームごとの画面は /games/<id>/client.js の render() に任せる
 // =============================================================
 import { play as soundPlay, setMuted, isMuted } from '/lib/sound.js';
-import { createChat } from '/chat.js';
 
 const socket = io();
 const $ = s => document.querySelector(s);
@@ -66,20 +65,36 @@ const call = (event, data = {}) => new Promise(res => socket.emit(event, data, r
 const sound = name => soundPlay(name);
 
 // ---------- チャット（ロビー・ゲーム共通で1つ） ----------
-const chat = createChat({ socket, sound, toast });
+// チャットは遅延読み込みする。万一読み込みに失敗しても、ホーム・ロビー・ゲームが
+// 止まらないよう、最初は何もしないダミーを入れておき、読み込めたら差し替える。
+function stubChat() {
+  const el = document.createElement('div');
+  return {
+    el,
+    setSelf() {}, setHistory() {}, addMessage() {}, setVisible() {},
+    setComposeChannel() {}, setOnUnread() {}, get unread() { return 0; },
+  };
+}
+let chat = stubChat();
 socket.on('chat:history', list => chat.setHistory(list));
 socket.on('chat:message', m => {
   chat.addMessage(m);
-  if (m.kind === 'reaction') showReaction(m); // 席の上の吹き出し（step 5 で実装）
+  if (m.kind === 'reaction') showReaction(m);
 });
-chat.setOnUnread(n => {
-  for (const id of ['#chat-badge', '#tab-chat-badge']) {
-    const b = $(id);
-    if (!b) continue;
-    b.textContent = n > 99 ? '99+' : String(n);
-    b.hidden = n === 0;
-  }
-});
+
+import('/chat.js').then(mod => {
+  chat = mod.createChat({ socket, sound, toast });
+  chat.setOnUnread(n => {
+    for (const id of ['#chat-badge', '#tab-chat-badge']) {
+      const b = $(id);
+      if (!b) continue;
+      b.textContent = n > 99 ? '99+' : String(n);
+      b.hidden = n === 0;
+    }
+  });
+  // すでに部屋にいるなら、今の画面を描き直してチャットを差し込む
+  if (room) { if (room.phase === 'lobby') renderLobby(room); else renderGame(room); }
+}).catch(e => console.error('チャットの読み込みに失敗しました（チャット以外は動作します）', e));
 
 // いまチャットを送ると届くチャンネル（観戦席かどうか）を入力欄に反映する
 function chatComposeChannel(r) {
