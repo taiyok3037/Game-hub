@@ -840,7 +840,15 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   border-radius: 999px; padding: 4px 14px; cursor: pointer;
 }
 
-.chat-reactions { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px; }
+.chat-reactions {
+  display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px;
+  /* スクロールバーは隠す（横スクロール自体は残す） */
+  scrollbar-width: none;
+  /* 右端をうっすら薄くして「まだ続きがある」ことを示す */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
+}
+.chat-reactions::-webkit-scrollbar { display: none; }
 .chat-chip {
   flex: 0 0 auto;
   font: inherit; font-size: 13px; font-weight: 700;
