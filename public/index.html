@@ -71,7 +71,7 @@
         <span id="game-you-tag" class="you-tag" hidden></span>
       </div>
       <div class="game-bar-actions">
-        <button id="rules-btn" class="btn ghost small" hidden>ルール</button>
+        <button id="chat-btn" class="btn ghost small chat-btn">チャット<span id="chat-badge" class="chat-badge" hidden>0</span></button>
         <button id="mute-btn" class="btn ghost small icon-btn" aria-label="効果音オン" aria-pressed="true"></button>
         <button class="btn ghost small leave-btn">退店</button>
       </div>
@@ -80,7 +80,14 @@
     <div id="game-spectate-note" class="spectate-note"></div>
     <div class="game-layout">
       <div id="game-root" class="game-root"></div>
-      <aside id="game-rules" class="rules-panel paper" hidden></aside>
+      <aside id="game-side" class="game-side paper">
+        <div class="side-tabs" role="tablist">
+          <button id="tab-chat" class="side-tab on" role="tab" aria-selected="true">チャット<span id="tab-chat-badge" class="chat-badge" hidden>0</span></button>
+          <button id="tab-rules" class="side-tab" role="tab" aria-selected="false">ルール</button>
+        </div>
+        <div id="side-chat" class="side-panel"></div>
+        <div id="side-rules" class="side-panel" hidden></div>
+      </aside>
     </div>
     <div id="game-end" class="end-bar" hidden>
       <button id="back-lobby" class="btn primary">ロビーに戻ってもう一度</button>
@@ -89,13 +96,17 @@
     <div id="turn-banner" class="turn-banner" hidden>あなたの番です</div>
   </section>
 
-  <!-- ルール（スマホ用ボトムシート） -->
-  <dialog id="rules-dialog" class="rules-sheet paper">
-    <div class="rules-sheet-head">
-      <h3>ルール</h3>
-      <button id="rules-close" class="btn ghost small">閉じる</button>
+  <!-- チャット／ルール（スマホ用ボトムシート） -->
+  <dialog id="sheet" class="rules-sheet paper">
+    <div class="sheet-head">
+      <div class="side-tabs" role="tablist">
+        <button id="sheet-tab-chat" class="side-tab on" role="tab" aria-selected="true">チャット</button>
+        <button id="sheet-tab-rules" class="side-tab" role="tab" aria-selected="false">ルール</button>
+      </div>
+      <button id="sheet-close" class="btn ghost small">閉じる</button>
     </div>
-    <div id="rules-dialog-body"></div>
+    <div id="sheet-chat" class="sheet-panel"></div>
+    <div id="sheet-rules" class="sheet-panel" hidden></div>
   </dialog>
 
   <div id="toast" class="toast" hidden></div>

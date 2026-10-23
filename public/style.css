@@ -680,7 +680,7 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 @media (min-width: 768px) {
   #screen-game { max-width: 1024px; }
   .game-layout { grid-template-columns: minmax(0, 1fr) 280px; }
-  #rules-btn { display: none; }
+  #chat-btn { display: none; }
 }
 
 /* 1100px 以上：3列。左 g-side(260)・中央 g-main(560)・右ルール(300)。全体 1240px */
@@ -760,3 +760,46 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .chat-send { flex: 0 0 auto; align-self: center; }
 .chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .chat-spec-mode .chat-input { border-color: #8aa0c8; background: #eef1f6; }
+
+/* ゲーム画面：チャット／ルールのタブ（右列） */
+.game-side { display: none; }
+@media (min-width: 768px) {
+  .game-side {
+    display: flex; flex-direction: column;
+    position: sticky; top: 16px;
+    max-height: calc(100dvh - 32px);
+    padding: 12px 14px;
+  }
+}
+.side-tabs { display: flex; gap: 6px; }
+.side-tab {
+  position: relative;
+  flex: 0 0 auto; font: inherit; font-weight: 900; font-size: 14px;
+  color: var(--ink-soft); background: var(--paper-light);
+  border: 2px solid var(--paper-line); border-radius: 999px;
+  padding: 5px 14px; cursor: pointer;
+}
+.side-tab.on { color: #fff; background: var(--red); border-color: var(--red-dark); }
+.game-side .side-tabs { margin-bottom: 10px; }
+.game-side .side-panel:not([hidden]) { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.game-side #side-chat:not([hidden]) { display: flex; overflow: hidden; }
+.game-side .chat { flex: 1; min-height: 0; }
+.game-side .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
+
+/* 未読バッジ（ゲームバーのチャットボタン・右列のチャットタブ） */
+.chat-btn { position: relative; }
+.chat-badge {
+  display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 5px;
+  font-size: 11px; font-weight: 900; line-height: 18px; text-align: center;
+  color: #fff; background: var(--red); border-radius: 999px;
+}
+
+/* ボトムシート（スマホ）：チャット／ルールのタブ */
+#sheet[open] { display: flex; flex-direction: column; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+#sheet .sheet-panel:not([hidden]) { min-height: 0; }
+#sheet #sheet-chat:not([hidden]) { display: flex; flex-direction: column; }
+#sheet .chat { flex: 1; min-height: 0; }
+#sheet .chat-log { height: 52dvh; }
+#sheet #sheet-rules { overflow: auto; max-height: 62dvh; }
+#sheet #sheet-rules h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
