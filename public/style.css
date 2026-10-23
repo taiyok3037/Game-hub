@@ -732,6 +732,21 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   #screen-game.chat-closed .g-layout { grid-template-columns: 260px minmax(0, 720px); }
 }
 
+/* ロビー：900px以上でチャットを開いていると 紙パネル(最大560)｜チャット320 の2列。
+   左なら入れ替え。閉じている・899px以下は 紙パネルの下にチャット（1列）。 */
+.lobby-grid { display: grid; gap: 16px; }
+.lobby-grid > * { margin-bottom: 0; }
+@media (min-width: 900px) {
+  #screen-lobby.chat-open { max-width: 920px; }
+  #screen-lobby.chat-open .lobby-grid {
+    grid-template-columns: minmax(0, 560px) 320px;
+    justify-content: center;
+    align-items: start;
+  }
+  #screen-lobby.chat-open.chat-left .lobby-grid { grid-template-columns: 320px minmax(0, 560px); }
+  #screen-lobby.chat-open.chat-left #lobby-chat-slot { order: -1; }
+}
+
 /* =============================================================
    チャット（仕様04）
    ============================================================= */
