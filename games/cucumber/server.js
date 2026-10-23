@@ -270,6 +270,27 @@ module.exports = {
     };
   },
 
+  // 脱落した人・退席した人なら true（観戦者と同じ見え方にする）
+  isOut(state, playerId) {
+    const seat = state.players.findIndex(p => p.id === playerId);
+    if (seat === -1) return true;
+    return !!state.out[seat];
+  },
+
+  // 観戦者・脱落者に見せる view。
+  //  seesAll=false（既定）：場・得点・各自の枚数・過去のトリックだけ（手札は伏せる）
+  //  seesAll=true       ：＋全員の手札の中身
+  // view(state, null) は seat=-1 なので myHand が空＝ちょうど「公開情報のみ」になる
+  spectatorView(state, { seesAll, viewerId }) {
+    const v = this.view(state, null);
+    v.spectator = true;
+    v.viewerId = viewerId; // 脱落者が自分の席を強調するため
+    if (seesAll) {
+      v.players = v.players.map((p, i) => ({ ...p, hand: state.hands[i] || [] }));
+    }
+    return v;
+  },
+
   isOver(state) {
     return state.phase === 'over';
   },

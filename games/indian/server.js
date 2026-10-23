@@ -256,6 +256,28 @@ module.exports = {
     };
   },
 
+  // 脱落した人・退席した人なら true
+  isOut(state, playerId) {
+    const seat = state.players.findIndex(p => p.id === playerId);
+    if (seat === -1) return true;
+    return !!state.out[seat];
+  },
+
+  // 観戦者・脱落者に見せる view。
+  //  seesAll=false（既定）：宣言中は全員のカードを伏せる。公開後(reveal/over)は全員見せる
+  //  seesAll=true       ：宣言中も全員のカードを見せる
+  // ※ view(state, null) は declare 中でも全員のカードを出してしまう（viewer が誰でもないため）
+  //    ので、既定では宣言中のカードを明示的に伏せる。
+  spectatorView(state, { seesAll, viewerId }) {
+    const v = this.view(state, null);
+    v.spectator = true;
+    v.viewerId = viewerId; // 脱落者が自分の席を強調するため
+    if (state.phase === 'declare' && !seesAll) {
+      v.players = v.players.map(p => ({ ...p, card: null }));
+    }
+    return v;
+  },
+
   isOver(state) {
     return state.phase === 'over';
   },
