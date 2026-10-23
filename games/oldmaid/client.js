@@ -32,10 +32,11 @@ export function render(root, v, ctx) {
     else if (v.currentId !== p.currentId) ctx.sound('card'); // 引いた（ペアにならず手番が回った）
   }
 
+  const isPlayer = ctx.role === 'player';
   const me = v.players.find(p => p.id === ctx.me);
   const current = v.players.find(p => p.id === v.currentId);
   const target = v.players.find(p => p.id === v.targetId);
-  const myTurn = !v.over && v.currentId === ctx.me;
+  const myTurn = isPlayer && !v.over && v.currentId === ctx.me;
   const loser = v.players.find(p => p.id === v.loserId);
 
   let small, big;
@@ -55,6 +56,8 @@ export function render(root, v, ctx) {
 
   const others = v.players.filter(p => p.id !== ctx.me);
   const last = v.myLastDraw;
+  // 観戦（設定オン）のとき、各席の手札を表で見せる
+  const revealHand = p => p.hand ? `<div class="om-reveal">${p.hand.map(c => cardHTML(c, { cls: 'sm' })).join('')}</div>` : '';
 
   root.innerHTML = `
     <div class="g-layout">
@@ -68,6 +71,7 @@ export function render(root, v, ctx) {
                 </div>
                 <span class="seat-chip">${esc(p.name)}</span>
                 <span class="seat-info">${p.id === v.loserId ? '負け' : p.rank ? `${p.rank}位 上がり` : `${p.count}枚`}</span>
+                ${revealHand(p)}
               </div>`).join('')}
           </div>
 
@@ -83,13 +87,14 @@ export function render(root, v, ctx) {
           ${last ? `<div class="om-last">引いたカード ${cardHTML(last.card, { cls: 'sm' })} ${last.paired ? 'ペアで捨てた！' : ''}</div>` : ''}
         </div>
 
+        ${isPlayer ? `
         <div class="hand-head">
           <span>あなたの手札（${v.myHand.length}枚）</span>
           ${v.myHand.length > 1 && !v.over ? '<button class="btn small om-shuffle">シャッフル</button>' : ''}
         </div>
         <div class="hand om-hand" style="--ov:${overlap(v.myHand.length)}px">
           ${v.myHand.map((c, i, a) => cardHTML(c, { attrs: fanStyle(i, a.length, a.length > 6 ? 2 : 5) })).join('') || '<span class="muted" style="color:var(--paper)">手札なし</span>'}
-        </div>
+        </div>` : ''}
       </div>
       <div class="g-side">
         <ul class="log">${v.log.slice().reverse().slice(0, 10).map(l => `<li>${esc(l)}</li>`).join('')}</ul>

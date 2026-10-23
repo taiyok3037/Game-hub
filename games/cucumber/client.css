@@ -193,3 +193,6 @@
 .cu-score-bar span { display: block; height: 100%; background: var(--gold); }
 .cu-score-num { grid-area: num; font-weight: 900; text-align: right; }
 .cu-score-meta { grid-area: meta; font-size: 11px; color: var(--ink-soft); }
+
+/* 観戦（設定オン）で各席の手札を表に出すとき */
+.cu-reveal { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 4px; max-width: 110px; }

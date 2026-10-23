@@ -1,7 +1,7 @@
 // =============================================================
 //  Game Hub サーバー
 //  - games/ 以下のフォルダを自動で読み込み、ゲームとして登録する
-//  - ルーム（合言葉コード）・ロビー・再接続を共通で管理する
+//  - ルーム（合言葉コード）・ロビー・再接続・観戦を共通で管理する
 //  - ゲームの中身（ルール）は各ゲームの server.js に任せる
 // =============================================================
 const express = require('express');
@@ -10,11 +10,16 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
+const { viewFor, roleOf } = require('./lib/viewFor');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server);
 const PORT = process.env.PORT || 3000;
+
+const ROOM_CAP = 16;        // 観戦者を含めた部屋全体の上限
+// 準備OKがそろってから開始までのカウントダウン（テストだけ環境変数で短縮できる）
+const COUNTDOWN_MS = Number(process.env.COUNTDOWN_MS) || 3000;
 
 // ---------- ゲームの自動読み込み ----------
 const GAMES_DIR = path.join(__dirname, 'games');
@@ -75,19 +80,114 @@ function cleanName(name) {
   return n || 'ななし';
 }
 
-function publicPlayers(room) {
-  return room.players.map(p => ({ id: p.id, name: p.name, connected: p.connected }));
+// 新しいメンバーを作る。autoSpectator は「本人の希望ではなく自動で観戦にした」印
+function newMember(name, role, autoSpectator = false) {
+  return {
+    id: crypto.randomUUID(),
+    token: crypto.randomUUID(),
+    name: cleanName(name),
+    socketId: null,
+    connected: false,
+    role,                 // 'player' | 'spectator'（ロビーでの選択）
+    ready: false,         // ロビーでの準備OK
+    autoSpectator,
+  };
+}
+
+function publicMembers(room) {
+  return room.members.map(m => ({
+    id: m.id, name: m.name, connected: m.connected, role: m.role, ready: m.ready,
+  }));
 }
 
 // ゲームの action / onConnectionChange に渡すルーム情報
 function roomInfo(room) {
   return {
     hostId: room.hostId,
-    connectedIds: room.players.filter(p => p.connected).map(p => p.id),
+    connectedIds: room.members.filter(m => m.connected).map(m => m.id),
   };
 }
 
-// ルーム内の全員に「その人専用の画面情報」を送る
+// その局面で「参加者」とみなすメンバー（ロビー＝role, ゲーム中＝gamePlayerIds）
+function isParticipant(room, member) {
+  return room.phase === 'lobby'
+    ? member.role === 'player'
+    : room.gamePlayerIds.includes(member.id);
+}
+
+// ホストが抜けたときの次ホスト：接続中の参加者 → 接続中の観戦者 → その他
+function pickHost(room) {
+  const m = room.members.find(x => x.connected && isParticipant(room, x))
+         || room.members.find(x => x.connected && !isParticipant(room, x))
+         || room.members.find(x => x.connected)
+         || room.members[0];
+  return m ? m.id : null;
+}
+
+// ---------- カウントダウン・自動開始（3-3 / 3-4） ----------
+function clearCountdown(room) {
+  if (room.countdown) {
+    clearTimeout(room.countdown.timer);
+    room.countdown = null;
+  }
+}
+
+// role / ready / settings の変更、入退室、切断、再接続のたびに呼ぶ。
+// 条件がそろえばカウントダウンを始め、崩れれば止める（broadcast は呼び出し側が行う）
+function checkLobby(room) {
+  if (room.phase !== 'lobby') { clearCountdown(room); return; }
+  const game = games[room.gameId];
+  const connected = room.members.filter(m => m.connected);
+  const players = connected.filter(m => m.role === 'player');
+  const allReady = connected.length > 0 && connected.every(m => m.ready);
+  const countOk = players.length >= game.minPlayers && players.length <= game.maxPlayers;
+  const ok = allReady && countOk;
+
+  if (ok && !room.countdown) {
+    room.countdown = {
+      endsAt: Date.now() + COUNTDOWN_MS,
+      timer: setTimeout(() => startGame(room), COUNTDOWN_MS),
+    };
+  } else if (!ok && room.countdown) {
+    clearCountdown(room);
+  }
+}
+
+// 開始処理（カウントダウンが切れた / ホストが強制開始）
+function startGame(room) {
+  if (room.phase !== 'lobby') return;
+  const game = games[room.gameId];
+  clearCountdown(room);
+  const players = room.members.filter(m => m.role === 'player' && m.connected);
+  if (players.length < game.minPlayers || players.length > game.maxPlayers) {
+    broadcast(room); // 条件が崩れていたら開始しない
+    return;
+  }
+  room.gamePlayerIds = players.map(m => m.id);
+  room.state = game.setup(players.map(m => ({ id: m.id, name: m.name })));
+  room.phase = game.isOver(room.state) ? 'finished' : 'playing';
+  broadcast(room);
+}
+
+// ゲームが終わってロビーに戻す（3-7）
+function returnToLobby(room) {
+  const game = games[room.gameId];
+  clearCountdown(room);
+  room.phase = 'lobby';
+  room.state = null;
+  room.gamePlayerIds = [];
+  for (const m of room.members) m.ready = false;
+  // 自動で観戦になっていた人（満員・ゲーム中参加）は、空きがあれば参加者に戻す
+  const playerCount = () => room.members.filter(m => m.role === 'player').length;
+  for (const m of room.members) {
+    if (m.autoSpectator && m.role === 'spectator' && playerCount() < game.maxPlayers) {
+      m.role = 'player';
+      m.autoSpectator = false;
+    }
+  }
+}
+
+// ---------- 画面に送る（broadcast） ----------
 function broadcast(room) {
   room.lastActive = Date.now();
   const game = games[room.gameId];
@@ -100,30 +200,36 @@ function broadcast(room) {
       console.error(e);
     }
   }
-  for (const p of room.players) {
-    if (!p.socketId) continue;
+  const members = publicMembers(room);
+  for (const m of room.members) {
+    if (!m.socketId) continue;
     let view = null;
-    if (room.state) {
-      try {
-        view = game.view(room.state, p.id);
-      } catch (e) {
-        console.error(e);
-      }
+    try {
+      view = viewFor(game, room, m.id);
+    } catch (e) {
+      console.error(e);
     }
-    io.to(p.socketId).emit('room:update', {
+    io.to(m.socketId).emit('room:update', {
       code: room.code,
       gameId: room.gameId,
       gameName: game.name,
       minPlayers: game.minPlayers,
       maxPlayers: game.maxPlayers,
+      roomCap: ROOM_CAP,
       hostId: room.hostId,
       phase: room.phase, // 'lobby' | 'playing' | 'finished'
-      players: publicPlayers(room),
-      you: p.id,
+      members,
+      gamePlayerIds: room.gamePlayerIds,
+      settings: room.settings,
+      countdownEndsAt: room.countdown ? room.countdown.endsAt : null,
+      you: m.id,
+      yourRole: roleOf(game, room, m.id),
       notice: room.notice || null,
       view,
       turnIds,
-      yourTurn: turnIds.includes(p.id) && room.phase === 'playing',
+      yourTurn: room.phase === 'playing'
+        && room.gamePlayerIds.includes(m.id)
+        && turnIds.includes(m.id),
     });
   }
   room.notice = null;
@@ -152,43 +258,49 @@ function findBySocket(socket) {
   if (!code) return {};
   const room = rooms.get(code);
   if (!room) return {};
-  const player = room.players.find(p => p.id === socket.data.playerId);
-  return { room, player };
+  const member = room.members.find(m => m.id === socket.data.playerId);
+  return { room, member };
 }
 
-function attach(socket, room, player) {
-  player.socketId = socket.id;
-  player.connected = true;
+function attach(socket, room, member) {
+  member.socketId = socket.id;
+  member.connected = true;
   socket.data.roomCode = room.code;
-  socket.data.playerId = player.id;
+  socket.data.playerId = member.id;
   socket.join(room.code);
 }
 
-function removePlayer(room, playerId) {
-  const player = room.players.find(p => p.id === playerId);
-  if (!player) return;
+function removeMember(room, memberId) {
+  const member = room.members.find(m => m.id === memberId);
+  if (!member) return;
+  const game = games[room.gameId];
+  const inGame = room.gamePlayerIds.includes(memberId);
 
-  if (room.phase === 'playing') {
-    // ゲームが「途中離脱」に対応していればそれを使う。なければロビーに戻す
-    const game = games[room.gameId];
-    if (typeof game.onLeave === 'function' && game.onLeave(room.state, playerId) !== false) {
-      room.notice = `${player.name} さんが抜けました`;
+  if (room.phase === 'playing' && inGame) {
+    // 参加者の離脱：ゲームが「途中離脱」に対応していればそれを使う。なければロビーへ
+    if (typeof game.onLeave === 'function' && game.onLeave(room.state, memberId) !== false) {
+      room.notice = `${member.name} さんが抜けました`;
     } else {
       room.phase = 'lobby';
       room.state = null;
-      room.notice = `${player.name} さんが抜けたため、ゲームを終了しました`;
+      room.gamePlayerIds = [];
+      room.notice = `${member.name} さんが抜けたため、ゲームを終了しました`;
     }
   } else {
-    room.notice = `${player.name} さんが退出しました`;
+    // 観戦者・ロビーのメンバー：ゲームには何もしない（onLeave を呼ばない）
+    room.notice = `${member.name} さんが退出しました`;
   }
 
-  room.players = room.players.filter(p => p.id !== playerId);
-  if (room.players.length === 0) {
+  room.members = room.members.filter(m => m.id !== memberId);
+  room.gamePlayerIds = room.gamePlayerIds.filter(id => id !== memberId);
+  if (room.members.length === 0) {
+    clearCountdown(room);
     rooms.delete(room.code);
     return;
   }
-  if (room.hostId === playerId) room.hostId = room.players[0].id;
+  if (room.hostId === memberId) room.hostId = pickHost(room);
   if (room.phase === 'playing' && games[room.gameId].isOver(room.state)) room.phase = 'finished';
+  checkLobby(room);
   broadcast(room);
 }
 
@@ -198,48 +310,60 @@ io.on('connection', socket => {
     const game = games[gameId];
     if (!game) return cb({ error: 'そのゲームはありません' });
     leaveCurrent(socket);
-    const player = { id: crypto.randomUUID(), token: crypto.randomUUID(), name: cleanName(name) };
+    const member = newMember(name, 'player');
     const room = {
       code: newRoomCode(),
       gameId,
-      hostId: player.id,
-      players: [player],
+      hostId: member.id,
+      members: [member],
       phase: 'lobby',
       state: null,
+      gamePlayerIds: [],
+      settings: { spectatorSeesAll: false },
+      countdown: null,
       lastActive: Date.now(),
     };
     rooms.set(room.code, room);
-    attach(socket, room, player);
-    cb({ ok: true, code: room.code, token: player.token });
+    attach(socket, room, member);
+    cb({ ok: true, code: room.code, token: member.token });
+    checkLobby(room);
     broadcast(room);
   });
 
-  // ルーム参加
+  // ルーム参加（ゲーム中でも観戦として入れる。断るのは部屋が16人のときだけ）
   socket.on('room:join', ({ name, code } = {}, cb = () => {}) => {
     const room = rooms.get(String(code || '').trim().toUpperCase());
     if (!room) return cb({ error: 'ルームが見つかりません。コードを確認してください' });
     const game = games[room.gameId];
-    if (room.phase !== 'lobby') return cb({ error: 'ゲームが始まっているので入れません' });
-    if (room.players.length >= game.maxPlayers) return cb({ error: `満員です（最大${game.maxPlayers}人）` });
+    if (room.members.length >= ROOM_CAP) return cb({ error: `満員です（最大${ROOM_CAP}人）` });
     leaveCurrent(socket);
-    const player = { id: crypto.randomUUID(), token: crypto.randomUUID(), name: cleanName(name) };
-    room.players.push(player);
-    attach(socket, room, player);
-    room.notice = `${player.name} さんが参加しました`;
-    cb({ ok: true, code: room.code, token: player.token });
+    // 入室時の role：ロビー中で参加者に空きがあれば player、そうでなければ spectator
+    let role = 'spectator';
+    let auto = true;
+    if (room.phase === 'lobby' && room.members.filter(m => m.role === 'player').length < game.maxPlayers) {
+      role = 'player';
+      auto = false;
+    }
+    const member = newMember(name, role, auto);
+    room.members.push(member);
+    attach(socket, room, member);
+    room.notice = `${member.name} さんが${role === 'spectator' ? '観戦で' : ''}参加しました`;
+    cb({ ok: true, code: room.code, token: member.token });
+    checkLobby(room);
     broadcast(room);
   });
 
   // 再接続（リロード・スマホのスリープ復帰など）
   socket.on('room:rejoin', ({ code, token } = {}, cb = () => {}) => {
     const room = rooms.get(code);
-    const player = room && room.players.find(p => p.token === token);
-    if (!player) return cb({ error: 'expired' });
-    if (player.socketId && player.socketId !== socket.id) {
-      io.sockets.sockets.get(player.socketId)?.disconnect(true); // 古いタブは切断
+    const member = room && room.members.find(m => m.token === token);
+    if (!member) return cb({ error: 'expired' });
+    if (member.socketId && member.socketId !== socket.id) {
+      io.sockets.sockets.get(member.socketId)?.disconnect(true); // 古いタブは切断
     }
-    attach(socket, room, player);
-    cb({ ok: true, code: room.code, token: player.token });
+    attach(socket, room, member);
+    cb({ ok: true, code: room.code, token: member.token });
+    checkLobby(room);
     broadcast(room);
     notifyConnectionChange(room); // 再接続をゲームに知らせる
   });
@@ -249,28 +373,74 @@ io.on('connection', socket => {
     cb({ ok: true });
   });
 
-  // ホストがゲーム開始
-  socket.on('game:start', (_ = {}, cb = () => {}) => {
-    const { room, player } = findBySocket(socket);
-    if (!room) return cb({ error: 'ルームにいません' });
-    if (room.hostId !== player.id) return cb({ error: 'ホストだけが開始できます' });
-    if (room.phase === 'playing') return cb({ error: 'すでに始まっています' });
+  // ロビー：参加／観戦を選ぶ（本人・ロビー中だけ）
+  socket.on('lobby:role', ({ role } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.phase !== 'lobby') return cb({ error: 'ロビーでのみ変更できます' });
+    if (role !== 'player' && role !== 'spectator') return cb({ error: '不明な選択です' });
     const game = games[room.gameId];
-    if (room.players.length < game.minPlayers) return cb({ error: `${game.minPlayers}人以上必要です` });
-    room.state = game.setup(room.players.map(p => ({ id: p.id, name: p.name })));
-    room.phase = game.isOver(room.state) ? 'finished' : 'playing';
+    if (role === 'player' && member.role !== 'player') {
+      const players = room.members.filter(m => m.role === 'player').length;
+      if (players >= game.maxPlayers) return cb({ error: `参加者が満員です（最大${game.maxPlayers}人）` });
+    }
+    member.role = role;
+    member.autoSpectator = false; // 本人が選んだので自動印は外す
+    member.ready = false;         // 選び直したら準備OKはやり直し
     cb({ ok: true });
+    checkLobby(room);
     broadcast(room);
+  });
+
+  // ロビー：準備OKの付け外し
+  socket.on('lobby:ready', ({ on } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.phase !== 'lobby') return cb({ error: 'ロビーではありません' });
+    member.ready = on !== false;
+    cb({ ok: true });
+    checkLobby(room);
+    broadcast(room);
+  });
+
+  // ロビー：観戦者の見え方を切り替える（ホストだけ）
+  socket.on('lobby:settings', ({ spectatorSeesAll } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.hostId !== member.id) return cb({ error: 'ホストだけが設定できます' });
+    if (room.phase !== 'lobby') return cb({ error: 'ロビーでのみ変更できます' });
+    room.settings.spectatorSeesAll = !!spectatorSeesAll;
+    for (const m of room.members) m.ready = false; // 条件が変わったので確認し直す
+    cb({ ok: true });
+    checkLobby(room);
+    broadcast(room);
+  });
+
+  // ホストが準備OKを待たずに開始（人数が条件内のときだけ）
+  socket.on('lobby:forceStart', (_ = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.hostId !== member.id) return cb({ error: 'ホストだけが開始できます' });
+    if (room.phase !== 'lobby') return cb({ error: 'すでに始まっています' });
+    const game = games[room.gameId];
+    const players = room.members.filter(m => m.role === 'player' && m.connected).length;
+    if (players < game.minPlayers || players > game.maxPlayers) {
+      return cb({ error: `参加者は${game.minPlayers}〜${game.maxPlayers}人にしてください` });
+    }
+    cb({ ok: true });
+    startGame(room);
   });
 
   // ゲーム中の操作。中身の判定はすべて各ゲームの action() に任せる
   socket.on('game:action', (action = {}, cb = () => {}) => {
-    const { room, player } = findBySocket(socket);
-    if (!room || room.phase !== 'playing') return cb({ error: 'ゲーム中ではありません' });
+    const { room, member } = findBySocket(socket);
+    if (!room || !member || room.phase !== 'playing') return cb({ error: 'ゲーム中ではありません' });
+    // 操作できるのは今のゲームの参加者だけ（脱落者も gamePlayerIds に残るので準備OKは押せる）
+    if (!room.gamePlayerIds.includes(member.id)) return cb({ error: '観戦中は操作できません' });
     const game = games[room.gameId];
     let result;
     try {
-      result = game.action(room.state, player.id, action, roomInfo(room));
+      result = game.action(room.state, member.id, action, roomInfo(room));
     } catch (e) {
       console.error(e);
       return cb({ error: 'エラーが起きました' });
@@ -283,37 +453,37 @@ io.on('connection', socket => {
 
   // ホストがロビーに戻す（もう一度遊ぶ）
   socket.on('game:lobby', (_ = {}, cb = () => {}) => {
-    const { room, player } = findBySocket(socket);
-    if (!room) return cb({ error: 'ルームにいません' });
-    if (room.hostId !== player.id) return cb({ error: 'ホストだけが操作できます' });
-    room.phase = 'lobby';
-    room.state = null;
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    if (room.hostId !== member.id) return cb({ error: 'ホストだけが操作できます' });
+    returnToLobby(room);
     cb({ ok: true });
     broadcast(room);
   });
 
   socket.on('disconnect', () => {
-    const { room, player } = findBySocket(socket);
-    if (!room || !player || player.socketId !== socket.id) return;
-    player.connected = false;
-    player.socketId = null;
+    const { room, member } = findBySocket(socket);
+    if (!room || !member || member.socketId !== socket.id) return;
+    member.connected = false;
+    member.socketId = null;
     // ロビー中なら少し待って戻ってこなければ退出扱い
     if (room.phase === 'lobby') {
       setTimeout(() => {
-        if (rooms.get(room.code) === room && !player.connected && room.phase === 'lobby') {
-          removePlayer(room, player.id);
+        if (rooms.get(room.code) === room && !member.connected && room.phase === 'lobby') {
+          removeMember(room, member.id);
         }
       }, 60_000);
     }
+    checkLobby(room);
     broadcast(room);
     notifyConnectionChange(room); // 切断をゲームに知らせる
   });
 
   function leaveCurrent(sock) {
-    const { room, player } = findBySocket(sock);
-    if (room && player) {
+    const { room, member } = findBySocket(sock);
+    if (room && member) {
       sock.leave(room.code);
-      removePlayer(room, player.id);
+      removeMember(room, member.id);
     }
     sock.data.roomCode = null;
     sock.data.playerId = null;
@@ -324,9 +494,15 @@ io.on('connection', socket => {
 setInterval(() => {
   const now = Date.now();
   for (const room of rooms.values()) {
-    const anyone = room.players.some(p => p.connected);
-    if (!anyone && now - room.lastActive > 30 * 60_000) rooms.delete(room.code);
+    const anyone = room.members.some(m => m.connected);
+    if (!anyone && now - room.lastActive > 30 * 60_000) {
+      clearCountdown(room);
+      rooms.delete(room.code);
+    }
   }
 }, 5 * 60_000);
 
 server.listen(PORT, () => console.log(`Game Hub 起動: http://localhost:${PORT}`));
+
+// テスト用に内部を公開する（通常の起動には影響しない）
+module.exports = { rooms, games, viewFor, roleOf };

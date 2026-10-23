@@ -7,6 +7,7 @@
 // =============================================================
 const assert = require('assert');
 const game = require('../games/indian/server.js');
+const { checkSpectatorLeak, checkViewForUsesSpectator } = require('./leakCheck');
 
 const GAMES_PER_SIZE = 2000;
 const MAX_STEPS = 5000;
@@ -110,6 +111,13 @@ function checkInvariants(state) {
     assert(game.turnOf(state).length === 0, 'reveal/over の turnOf は空');
   }
   for (const p of state.players) game.view(state, p.id); // 例外が出ないこと
+  // 観戦ビューの漏洩チェック（仕様 6-2）。宣言中は全員のカードが伏せられるはず
+  const aliveSeats = state.players.map((_, i) => i).filter(i => !state.out[i]);
+  const aliveIds = aliveSeats.map(i => state.players[i].id);
+  const allHands = new Set();
+  for (const i of aliveSeats) if (state.cards[i]) allHands.add(state.cards[i].r + '|' + state.cards[i].s);
+  checkSpectatorLeak(game, state, aliveIds, allHands);
+  checkViewForUsesSpectator(game, state, state.players.map(p => p.id));
 }
 
 function aliveIds(state) {

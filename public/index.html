@@ -54,13 +54,7 @@
       <span class="label">招待コード</span>
       <div class="room-code" id="lobby-code"></div>
       <button id="copy-link" class="btn ghost small">招待リンクをコピー</button>
-      <div class="lobby-head">
-        <span>卓についた人</span>
-        <span id="lobby-count" class="muted"></span>
-      </div>
-      <ul id="lobby-players" class="player-list"></ul>
-      <button id="start-btn" class="btn primary big">ゲーム開始</button>
-      <p id="lobby-wait" class="muted center"></p>
+      <div id="lobby-body"></div>
     </div>
     <div class="center">
       <button class="btn ghost leave-btn">退店する</button>
@@ -73,6 +67,7 @@
       <div class="game-bar-title">
         <span id="game-title"></span>
         <span class="room-tag">卓 <span id="game-code"></span></span>
+        <span id="game-you-tag" class="you-tag" hidden></span>
       </div>
       <div class="game-bar-actions">
         <button id="rules-btn" class="btn ghost small" hidden>ルール</button>
@@ -81,6 +76,7 @@
       </div>
     </header>
     <div id="game-offline" class="offline-list"></div>
+    <div id="game-spectate-note" class="spectate-note"></div>
     <div class="game-layout">
       <div id="game-root" class="game-root"></div>
       <aside id="game-rules" class="rules-panel paper" hidden></aside>

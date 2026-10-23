@@ -7,6 +7,7 @@
 // =============================================================
 const assert = require('assert');
 const game = require('../games/cucumber/server.js');
+const { checkSpectatorLeak, checkViewForUsesSpectator } = require('./leakCheck');
 
 const GAMES_PER_SIZE = 2000; // 2〜7人で合計 12,000 ゲーム
 const MAX_STEPS = 20000;
@@ -38,6 +39,13 @@ function checkInvariants(state) {
   assert(Array.isArray(state.ready), 'ready が配列でない');
   // 各プレイヤーの view が例外なく作れること
   for (const p of state.players) game.view(state, p.id);
+  // 観戦ビューの漏洩チェック（仕様 6-2）
+  const aliveSeats = state.players.map((_, i) => i).filter(i => !state.out[i]);
+  const aliveIds = aliveSeats.map(i => state.players[i].id);
+  const allHands = new Set();
+  for (const i of aliveSeats) for (const c of state.hands[i] || []) allHands.add(c.r + '|' + c.s);
+  checkSpectatorLeak(game, state, aliveIds, allHands);
+  checkViewForUsesSpectator(game, state, state.players.map(p => p.id));
   if (state.phase === 'play') {
     const t = game.turnOf(state);
     assert(t.length === 1, `play 中の turnOf は1人: ${JSON.stringify(t)}`);

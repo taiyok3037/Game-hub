@@ -7,6 +7,7 @@
 const assert = require('assert');
 const ttt = require('../games/tictactoe/server.js');
 const om = require('../games/oldmaid/server.js');
+const { checkSpectatorLeak, checkViewForUsesSpectator } = require('./leakCheck');
 
 let rngState = 0x0f0f1234;
 function rnd() {
@@ -65,6 +66,13 @@ function runOldmaid(n) {
       const pv = om.view(s, p.id);
       assert(Array.isArray(pv.myHand), 'ババ抜き: myHand がない');
     }
+    // 観戦ビューの漏洩チェック（仕様 6-2）
+    const activeSeats = s.players.map((_, i) => i).filter(i => s.hands[i].length > 0);
+    const aliveIds = activeSeats.map(i => s.players[i].id);
+    const allHands = new Set();
+    for (const i of activeSeats) for (const c of s.hands[i]) allHands.add(c.r + '|' + c.s);
+    checkSpectatorLeak(om, s, aliveIds, allHands);
+    checkViewForUsesSpectator(om, s, s.players.map(p => p.id));
   }
   assert(om.isOver(s), `ババ抜き(${n}人): 終了しなかった`);
   assert(om.turnOf(s).length === 0, 'ババ抜き: 終了後の turnOf は空');

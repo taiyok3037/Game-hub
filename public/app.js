@@ -165,35 +165,134 @@ async function join() {
 }
 
 // ---------- ロビー ----------
+let lastLobby = null;    // 前回のロビー状態（音を鳴らすため）
+let lobbyCdTimer = null; // カウントダウン表示の更新タイマー
+
+function stopLobbyCountdown() {
+  clearInterval(lobbyCdTimer);
+  lobbyCdTimer = null;
+}
+
 function renderLobby(r) {
   resetPrev(); // ロビーに戻ったら前回の view を忘れる
   clearTurnFx();
   show('lobby');
   const isHost = r.hostId === r.you;
+  const me = r.members.find(m => m.id === r.you);
   $('#lobby-game').textContent = r.gameName;
   $('#lobby-code').textContent = r.code;
-  $('#lobby-count').textContent = `${r.players.length} / ${r.maxPlayers}`;
-  $('#lobby-players').innerHTML = r.players.map(p => `
-    <li class="${p.connected ? '' : 'offline'}">
-      ${esc(p.name)}
-      ${p.id === r.hostId ? '<span class="crown">ホスト</span>' : ''}
-      ${p.id === r.you ? '<span class="you">あなた</span>' : ''}
-      ${p.connected ? '' : '<span class="muted">（接続待ち）</span>'}
-    </li>`).join('');
 
-  const enough = r.players.length >= r.minPlayers;
-  $('#start-btn').hidden = !isHost;
-  $('#start-btn').disabled = !enough;
-  $('#lobby-wait').textContent = isHost
-    ? (enough ? '' : `あと${r.minPlayers - r.players.length}人集まると開始できます`)
-    : 'ホストが開始するのを待っています…';
-  $('#lobby-wait').hidden = !$('#lobby-wait').textContent;
+  const players = r.members.filter(m => m.role === 'player');
+  const spectators = r.members.filter(m => m.role === 'spectator');
+  const connPlayers = players.filter(m => m.connected);
+  const playersFull = players.length >= r.maxPlayers;
+  const iAmPlayer = me && me.role === 'player';
+  const iPressed = !!(me && me.ready);
+  const counting = r.countdownEndsAt != null;
+
+  // 状態メッセージ（1行）
+  const connReady = r.members.filter(m => m.connected && m.ready).length;
+  const connTotal = r.members.filter(m => m.connected).length;
+  let status = '';
+  if (!counting) {
+    if (connPlayers.length < r.minPlayers) status = `あと${r.minPlayers - connPlayers.length}人、参加者が必要です`;
+    else if (connPlayers.length > r.maxPlayers) status = `参加者が多すぎます（最大${r.maxPlayers}人）。だれか観戦に回ってください`;
+    else status = `準備OK ${connReady} / ${connTotal}`;
+  }
+
+  const memberLi = m => `
+    <li class="${m.connected ? '' : 'offline'} ${m.ready ? 'ready' : ''}">
+      <span class="lobby-ready-mark">${m.ready ? '✓' : '…'}</span>
+      <span class="lobby-name">${esc(m.name)}</span>
+      ${m.id === r.hostId ? '<span class="crown">ホスト</span>' : ''}
+      ${m.id === r.you ? '<span class="you">あなた</span>' : ''}
+      ${m.connected ? '' : '<span class="muted">（接続待ち）</span>'}
+    </li>`;
+
+  $('#lobby-body').innerHTML = `
+    <div class="lobby-choice" role="radiogroup" aria-label="参加するか観戦するか">
+      <button class="lobby-opt ${iAmPlayer ? 'on' : ''}" role="radio" aria-checked="${iAmPlayer}"
+        data-role="player" ${(!iAmPlayer && playersFull) ? 'disabled' : ''}>参加する</button>
+      <button class="lobby-opt ${!iAmPlayer ? 'on' : ''}" role="radio" aria-checked="${!iAmPlayer}"
+        data-role="spectator">観戦する</button>
+    </div>
+    ${(!iAmPlayer && playersFull) ? '<p class="lobby-note muted center">参加者が満員です</p>' : ''}
+
+    <button id="ready-btn" class="btn ${iPressed ? '' : 'primary'} big ${iPressed ? '' : 'pulse'}">
+      ${iPressed ? '準備OKを取り消す' : '準備OK'}</button>
+
+    ${counting ? `
+      <div class="lobby-countdown"><span class="lobby-cd-num" id="lobby-cd-num"></span> で開始します</div>
+      <p class="muted center small-note">準備OKを取り消すと止まります</p>` : ''}
+    ${status ? `<p class="lobby-status center">${esc(status)}</p>` : ''}
+
+    <div class="lobby-lists">
+      <div class="lobby-group">
+        <div class="lobby-group-head">参加（${players.length} / ${r.maxPlayers}）</div>
+        <ul class="player-list">${players.map(memberLi).join('') || '<li class="muted">なし</li>'}</ul>
+      </div>
+      <div class="lobby-group">
+        <div class="lobby-group-head">観戦（${spectators.length}）</div>
+        <ul class="player-list">${spectators.map(memberLi).join('') || '<li class="muted">なし</li>'}</ul>
+      </div>
+    </div>
+
+    ${isHost ? `
+      <div class="lobby-host paper">
+        <button class="lobby-switch" id="sees-all" role="switch" aria-checked="${r.settings.spectatorSeesAll}">
+          <span class="lobby-switch-track"><span class="lobby-switch-thumb"></span></span>
+          <span>観戦者に全員の手札を見せる</span>
+        </button>
+        <p class="muted lobby-switch-desc">オフのときは、プレイヤー全員に見えている情報だけを見せます</p>
+        <button class="btn ghost small" id="force-start">待たずに開始</button>
+      </div>` : ''}
+  `;
+
+  // ---- 操作 ----
+  $('#lobby-body').querySelectorAll('.lobby-opt').forEach(b => {
+    b.onclick = async () => {
+      if (b.disabled) return;
+      const res = await call('lobby:role', { role: b.dataset.role });
+      if (res.error) toast(res.error);
+    };
+  });
+  const readyBtn = $('#ready-btn');
+  readyBtn.onclick = async () => {
+    readyBtn.disabled = true;
+    const res = await call('lobby:ready', { on: !iPressed });
+    if (res.error) toast(res.error);
+  };
+  const sees = $('#sees-all');
+  if (sees) sees.onclick = async () => {
+    const res = await call('lobby:settings', { spectatorSeesAll: sees.getAttribute('aria-checked') !== 'true' });
+    if (res.error) toast(res.error);
+  };
+  const force = $('#force-start');
+  if (force) force.onclick = async () => {
+    if (!confirm('準備OKを待たずに開始しますか？')) return;
+    const res = await call('lobby:forceStart');
+    if (res.error) toast(res.error);
+  };
+
+  // ---- カウントダウン表示（0.2秒ごと更新） ----
+  stopLobbyCountdown();
+  if (counting) {
+    const tick = () => {
+      const el = $('#lobby-cd-num');
+      if (!el) return stopLobbyCountdown();
+      el.textContent = Math.max(0, Math.ceil((r.countdownEndsAt - Date.now()) / 1000));
+    };
+    tick();
+    lobbyCdTimer = setInterval(tick, 200);
+  }
+
+  // ---- 効果音：カウントダウン開始で turn、準備OKがそろうたびに ready ----
+  if (lastLobby && lastLobby.code === r.code) {
+    if (counting && !lastLobby.counting) sound('turn');
+    else if (!counting && connReady > lastLobby.connReady) sound('ready');
+  }
+  lastLobby = { code: r.code, counting, connReady };
 }
-
-$('#start-btn').addEventListener('click', async () => {
-  const res = await call('game:start');
-  if (res.error) toast(res.error);
-});
 
 $('#copy-link').addEventListener('click', async () => {
   const url = `${location.origin}/?room=${room.code}`;
@@ -211,6 +310,8 @@ for (const b of document.querySelectorAll('.leave-btn')) {
     await call('room:leave');
     clearSession();
     room = null;
+    lastLobby = null;
+    stopLobbyCountdown();
     resetPrev();
     clearTurnFx();
     history.replaceState(null, '', '/');
@@ -234,8 +335,18 @@ async function renderGame(r) {
   show('game');
   $('#game-title').textContent = r.gameName;
   $('#game-code').textContent = r.code;
-  const offline = r.players.filter(p => !p.connected);
-  $('#game-offline').textContent = offline.length ? `📡 接続待ち: ${offline.map(p => p.name).join('、')}` : '';
+  const offline = r.members.filter(m => !m.connected);
+  $('#game-offline').textContent = offline.length ? `📡 接続待ち: ${offline.map(m => m.name).join('、')}` : '';
+
+  // 自分の立場タグ（観戦者・脱落者）
+  const youTag = $('#game-you-tag');
+  let tag = '';
+  if (r.yourRole === 'spectator') tag = '観戦中';
+  else if (r.yourRole === 'out') tag = r.gameId === 'oldmaid' ? '上がり — 観戦中' : '脱落 — 観戦中';
+  youTag.textContent = tag;
+  youTag.hidden = !tag;
+  // 設定がオンのときは全員に知らせる
+  $('#game-spectate-note').textContent = r.settings && r.settings.spectatorSeesAll ? '観戦者には手札が見えています' : '';
 
   const finished = r.phase === 'finished';
   const isHost = r.hostId === r.you;
@@ -266,12 +377,14 @@ async function renderGame(r) {
 
   mod.render($('#game-root'), r.view, {
     me: r.you,
-    players: r.players,
+    players: r.members,
     finished,
     isHost,
     prev,
     yourTurn: !!r.yourTurn,
     turnIds: r.turnIds || [],
+    role: r.yourRole,                                   // 'player' | 'spectator' | 'out'
+    seesAll: !!(r.settings && r.settings.spectatorSeesAll),
     esc,
     toast,
     sound,
@@ -282,8 +395,27 @@ async function renderGame(r) {
     },
   });
 
+  renderSpectators(r); // 観戦者一覧は基盤側で描く（各ゲームの対応は不要）
+
   lastView = r.view;
   lastViewKey = key;
+}
+
+// 「観戦（N人）」の一覧。.g-side があれば一番下に、なければ卓の下に出す
+function renderSpectators(r) {
+  const root = $('#game-root');
+  const old = root.querySelector('.g-spectators');
+  if (old) old.remove();
+  const specs = r.members.filter(m => !r.gamePlayerIds.includes(m.id));
+  if (!specs.length) return;
+  const html = `
+    <div class="g-spectators">
+      <h3>観戦（${specs.length}）</h3>
+      <ul>${specs.map(m => `<li class="${m.connected ? '' : 'offline'}">${esc(m.name)}${m.id === r.you ? '<span class="you">あなた</span>' : ''}</li>`).join('')}</ul>
+    </div>`;
+  const side = root.querySelector('.g-side');
+  if (side) side.insertAdjacentHTML('beforeend', html);
+  else (root.querySelector('.g-main') || root).insertAdjacentHTML('beforeend', html);
 }
 
 $('#back-lobby').addEventListener('click', async () => {
@@ -295,8 +427,12 @@ $('#back-lobby').addEventListener('click', async () => {
 socket.on('room:update', r => {
   room = r;
   if (r.notice) toast(r.notice);
-  if (r.phase === 'lobby') renderLobby(r);
-  else renderGame(r);
+  if (r.phase === 'lobby') {
+    renderLobby(r);
+  } else {
+    stopLobbyCountdown();
+    renderGame(r);
+  }
 });
 
 socket.on('connect', async () => {

@@ -21,9 +21,10 @@ export function render(root, v, ctx) {
     else if (filledNow > filledPrev) ctx.sound('card');
   }
 
+  const isPlayer = ctx.role === 'player';
   const winner = v.players.find(p => p.id === v.winner);
   const current = v.players.find(p => p.id === v.currentId);
-  const myTurn = !ctx.finished && v.currentId === ctx.me;
+  const myTurn = isPlayer && !ctx.finished && v.currentId === ctx.me;
 
   let small, big;
   if (winner) {
@@ -32,9 +33,12 @@ export function render(root, v, ctx) {
   } else if (v.draw) {
     small = '決着';
     big = '引き分け';
+  } else if (myTurn) {
+    small = 'あなたの番';
+    big = '置く場所を選んでね';
   } else {
-    small = myTurn ? 'あなたの番' : '相手の番';
-    big = myTurn ? '置く場所を選んでね' : `${esc(current.name)} さんが考え中…`;
+    small = isPlayer ? '相手の番' : '観戦中';
+    big = `${esc(current.name)} さんが考え中…`;
   }
 
   root.innerHTML = `

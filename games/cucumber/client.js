@@ -26,8 +26,9 @@ let fromTimer = false;  // そのタイマーからの再描画かどうか
 export function render(root, v, ctx) {
   const { esc } = ctx;
   const name = id => esc((v.players.find(p => p.id === id) || {}).name || '?');
+  const isPlayer = ctx.role === 'player';
   const me = v.players.find(p => p.id === ctx.me);
-  const myTurn = v.phase === 'play' && v.currentId === ctx.me;
+  const myTurn = isPlayer && v.phase === 'play' && v.currentId === ctx.me;
   const lastTrick = v.trickNo === v.handSize;
 
   // ---- 効果音（B-4：prev との差分で、1回につき最大1つ） ----
@@ -88,10 +89,12 @@ export function render(root, v, ctx) {
       badge = '<span class="cu-badge next">次</span>';
     }
     if (p.out) cls += ' done';
+    const reveal = p.hand ? `<div class="cu-reveal">${p.hand.map(c => cardHTML(c, { cls: 'sm' })).join('')}</div>` : '';
     return `
       <div class="seat cu-seat ${cls}">
         <span class="seat-chip">${esc(p.name)}</span>
         ${badge || `<span class="seat-info">${p.left ? '退席' : p.out ? '脱落' : ''}</span>`}
+        ${reveal}
       </div>`;
   }).join('');
 
@@ -208,11 +211,12 @@ function readyPanel(v, ctx, name) {
   const iPressed = ready.includes(ctx.me);
   const list = need.map(id =>
     `<li class="${ready.includes(id) ? 'ok' : ''}">${ready.includes(id) ? '✓' : '待ち'} ${name(id)}</li>`).join('');
+  const isPlayer = ctx.role === 'player';
   return `
     <div class="cu-ready">
       <div class="cu-ready-head">準備OK ${readyCount} / ${need.length}</div>
       <ul class="cu-ready-list">${list}</ul>
-      <button class="btn ${iPressed ? '' : 'primary'} cu-ready-btn ${iPressed ? '' : 'cu-pulse'}">${iPressed ? '取り消す' : '準備OK'}</button>
+      ${isPlayer ? `<button class="btn ${iPressed ? '' : 'primary'} cu-ready-btn ${iPressed ? '' : 'cu-pulse'}">${iPressed ? '取り消す' : '準備OK'}</button>` : ''}
       ${ctx.isHost ? '<button class="btn ghost small cu-force">待たずに次へ</button>' : ''}
     </div>`;
 }

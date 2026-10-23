@@ -42,6 +42,25 @@ module.exports = {
     return state.over;
   },
 
-  // ⑤（任意）ゲーム中に誰かが抜けたとき。書かなければロビーに戻る
+  // ⑤（任意）脱落・上がり・退席した人なら true。基盤はこの人を観戦者と同じ扱いにする
+  // isOut(state, playerId) {
+  //   const seat = state.players.findIndex(p => p.id === playerId);
+  //   if (seat === -1) return true;        // 退席して席がなくなった
+  //   return !!state.out[seat];            // 脱落・上がり
+  // },
+
+  // ⑥（隠し情報があるゲームでは必須）観戦者・脱落者に見せる view。
+  //    seesAll=false（既定）：プレイヤー全員に見えている情報だけを返す（手札などは外す）
+  //    seesAll=true       ：全員の手札の中身まで見せる
+  //    viewerId           ：脱落者なら本人の id（自分の席の強調用）、観戦者なら観戦者の id
+  // spectatorView(state, { seesAll, viewerId }) {
+  //   const v = this.view(state, null); // null 視点＝自分の手札が付かない公開ビュー
+  //   if (seesAll) {
+  //     v.players = v.players.map((p, i) => ({ ...p, hand: state.hands[i] }));
+  //   }
+  //   return v;
+  // },
+
+  // ⑦（任意）ゲーム中に誰かが抜けたとき。書かなければロビーに戻る
   // onLeave(state, playerId) {},
 };

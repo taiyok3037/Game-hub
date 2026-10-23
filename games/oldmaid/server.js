@@ -155,6 +155,26 @@ module.exports = {
     };
   },
 
+  // 上がった人・退席した人なら true（観戦者と同じ見え方にする）
+  isOut(state, playerId) {
+    const seat = state.players.findIndex(p => p.id === playerId);
+    if (seat === -1) return true;          // 退席して席がなくなった
+    return state.finished.includes(seat);  // 上がった
+  },
+
+  // 観戦者・上がった人に見せる view。
+  //  seesAll=false（既定）：各自の枚数だけ（今の他人視点と同じ）
+  //  seesAll=true       ：全員の手札の中身
+  spectatorView(state, { seesAll, viewerId }) {
+    const v = this.view(state, null);
+    v.spectator = true;
+    v.viewerId = viewerId; // 上がった人が自分の席を強調するため
+    if (seesAll) {
+      v.players = v.players.map((p, i) => ({ ...p, hand: state.hands[i] }));
+    }
+    return v;
+  },
+
   isOver(state) {
     return state.over;
   },
