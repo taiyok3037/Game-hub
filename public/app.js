@@ -671,10 +671,30 @@ async function renderGame(r) {
     },
   });
 
+  mountRulesBox($('#game-root')); // ルール欄（.g-side の一番上。無ければ卓の下）
   renderSpectators(r); // 観戦者一覧は基盤側で描く（各ゲームの対応は不要）
 
   lastView = r.view;
   lastViewKey = key;
+}
+
+// ルール欄（.g-side の一番上の折りたたみ。.g-side が無いゲームは卓の下）。
+// スマホでは CSS で隠し、専用のルールシートで見せる。
+function mountRulesBox(root) {
+  const old = root.querySelector('.rules-box');
+  if (old) old.remove();
+  const box = document.createElement('details');
+  box.className = 'rules-box paper';
+  box.open = rulesOpen;
+  box.innerHTML = `<summary>ルール</summary><div class="rules-box-body">${currentRulesHtml}</div>`;
+  // 開閉を保存して、次のゲームでも同じ状態にする
+  box.addEventListener('toggle', () => {
+    rulesOpen = box.open;
+    lsSet(RULES_OPEN_KEY, rulesOpen ? '1' : '0');
+  });
+  const side = root.querySelector('.g-side');
+  if (side) side.prepend(box);
+  else (root.querySelector('.g-main') || root).appendChild(box);
 }
 
 // 「観戦（N人）」の一覧。.g-side があれば一番下に、なければ卓の下に出す

@@ -677,6 +677,24 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .sheet::backdrop { background: rgba(0,0,0,.5); }
 .sheet ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
 
+/* ルール欄（.g-side の折りたたみ。スマホは専用シートで見るので隠す） */
+.rules-box { border-radius: var(--radius); box-shadow: 0 4px 0 rgba(0,0,0,.25); padding: 10px 14px; }
+.rules-box > summary {
+  cursor: pointer; font-family: var(--font-title); font-size: 16px; font-weight: 700;
+  list-style: none; display: flex; align-items: center; gap: 6px;
+}
+.rules-box > summary::-webkit-details-marker { display: none; }
+.rules-box > summary::before { content: "▸"; font-size: 12px; color: var(--ink-soft); }
+.rules-box[open] > summary::before { content: "▾"; }
+.rules-box[open] > summary { margin-bottom: 8px; }
+.rules-box-body ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
+.rules-box-body li + li { margin-top: 4px; }
+@media (max-width: 767px) { .rules-box { display: none; } }
+/* PCでは g-side にルール欄があるので、ゲームバーのルールボタンは出さない */
+@media (min-width: 768px) { #rules-btn { display: none; } }
+/* ゲームバーが狭いときは、ボタンの文字を隠してアイコンだけにする（aria-label で読み上げ） */
+@media (max-width: 420px) { .bar-btn-text { display: none; } }
+
 /* ゲーム画面の外枠：卓（#game-root）＋ チャット列（#chat-col）。
    幅ごとの列組み（開閉・左右）は「ゲーム画面のグリッド」節（手順3）で組む */
 .game-grid { display: grid; gap: 16px; align-items: start; }
