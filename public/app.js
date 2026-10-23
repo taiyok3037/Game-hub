@@ -255,13 +255,17 @@ $('#rules-sheet-close').addEventListener('click', closeRulesSheet);
 $('#rules-sheet').addEventListener('click', e => { if (e.target === $('#rules-sheet')) closeRulesSheet(); });
 $('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 
-// PCのルール欄（#rules-box）は基盤が1回だけ持つ。開閉状態を保存し、初期値は開く。
-const rulesBox = $('#rules-box');
-rulesBox.open = rulesOpen;
-rulesBox.addEventListener('toggle', () => {
-  rulesOpen = rulesBox.open;
-  lsSet(RULES_OPEN_KEY, rulesOpen ? '1' : '0');
-});
+// PCのルール欄（#rules-box）の開閉。見出し行のボタンで開閉し、状態を保存する（初期値は開く）。
+function setRulesOpen(open) {
+  rulesOpen = open;
+  lsSet(RULES_OPEN_KEY, open ? '1' : '0');
+  $('#rules-box').classList.toggle('rules-closed', !open);
+  $('#rules-toggle').setAttribute('aria-expanded', String(open));
+  $('#rules-toggle .rules-head-label').textContent = open ? '隠す' : '表示';
+  $('#rules-toggle .rules-head-caret').textContent = open ? '▲' : '▼';
+}
+$('#rules-toggle').addEventListener('click', () => setRulesOpen(!rulesOpen));
+setRulesOpen(rulesOpen);
 
 document.addEventListener('visibilitychange', updateChatVisible);
 mqMobile.addEventListener('change', () => {
@@ -701,7 +705,7 @@ async function renderGame(r) {
   // ゲームの種類が決まったときに1回だけ入れ、以降の更新では触らない。
   currentRulesHtml = mod.rules || '<p class="muted">このゲームのルール説明はありません</p>';
   if (sideRulesGame !== r.gameId) {
-    $('#rules-body').innerHTML = currentRulesHtml;
+    $('#rules-body .rules-body-inner').innerHTML = currentRulesHtml;
     $('#rules-sheet-body').innerHTML = currentRulesHtml;
     $('#side-slot').replaceChildren(); // 前のゲームのサイドが残らないよう空にする
     sideRulesGame = r.gameId;

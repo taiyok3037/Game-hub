@@ -89,10 +89,13 @@
       <div id="main-wrap" class="main-wrap">
         <div id="game-root" class="game-root"></div>
         <aside id="side-col" class="side-col">
-          <details id="rules-box" class="rules-box paper">
-            <summary>ルール</summary>
-            <div id="rules-body" class="rules-box-body"></div>
-          </details>
+          <div id="rules-box" class="rules-box paper">
+            <button type="button" id="rules-toggle" class="rules-head" aria-expanded="true" aria-controls="rules-body">
+              <span class="rules-head-title">ルール</span>
+              <span class="rules-head-btn"><span class="rules-head-label">隠す</span> <span class="rules-head-caret" aria-hidden="true">▲</span></span>
+            </button>
+            <div id="rules-body" class="rules-box-body"><div class="rules-body-inner"></div></div>
+          </div>
           <div id="side-slot"></div>
           <div id="spectators-slot"></div>
         </aside>

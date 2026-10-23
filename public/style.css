@@ -697,18 +697,31 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .sheet::backdrop { background: rgba(0,0,0,.5); }
 .sheet ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
 
-/* ルール欄（.g-side の折りたたみ。スマホは専用シートで見るので隠す） */
-.rules-box { border-radius: var(--radius); box-shadow: 0 4px 0 rgba(0,0,0,.25); padding: 10px 14px; }
-.rules-box > summary {
-  cursor: pointer; font-family: var(--font-title); font-size: 16px; font-weight: 700;
-  list-style: none; display: flex; align-items: center; gap: 6px;
+/* ルール欄（#side-col の中。スマホは専用シートで見るので隠す）。
+   見出し行をはっきりしたボタンにして、折りたためることを分かりやすくする。 */
+.rules-box { border-radius: var(--radius); box-shadow: 0 4px 0 rgba(0,0,0,.25); padding: 0; overflow: hidden; }
+.rules-head {
+  width: 100%; min-height: 44px;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 6px 14px;
+  font: inherit; color: var(--ink); background: none; border: none; cursor: pointer;
 }
-.rules-box > summary::-webkit-details-marker { display: none; }
-.rules-box > summary::before { content: "▸"; font-size: 12px; color: var(--ink-soft); }
-.rules-box[open] > summary::before { content: "▾"; }
-.rules-box[open] > summary { margin-bottom: 8px; }
-.rules-box-body ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
-.rules-box-body li + li { margin-top: 4px; }
+.rules-head-title { font-family: var(--font-title); font-size: 16px; font-weight: 700; }
+.rules-head-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 12px; font-weight: 900; color: var(--ink-soft);
+  background: var(--paper); border: 2px solid var(--paper-line);
+  border-radius: 999px; padding: 3px 10px; flex-shrink: 0;
+}
+.rules-head:hover .rules-head-btn { filter: brightness(.97); }
+.rules-head-caret { font-size: 10px; }
+/* 開閉はグリッド行(1fr↔0fr)でなめらかに（0.15秒） */
+.rules-box-body { display: grid; grid-template-rows: 1fr; transition: grid-template-rows .15s ease; }
+.rules-box.rules-closed .rules-box-body { grid-template-rows: 0fr; }
+.rules-body-inner { overflow: hidden; min-height: 0; padding: 0 14px 12px; }
+.rules-body-inner ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
+.rules-body-inner li + li { margin-top: 4px; }
+@media (prefers-reduced-motion: reduce) { .rules-box-body { transition: none; } }
 @media (max-width: 767px) { .rules-box { display: none; } }
 /* PCでは g-side にルール欄があるので、ゲームバーのルールボタンは出さない */
 @media (min-width: 768px) { #rules-btn { display: none; } }
