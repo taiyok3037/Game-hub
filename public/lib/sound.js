@@ -107,5 +107,9 @@ export function play(name) {
       arp.forEach((f, i) => tone('sine', f, f, t + i * 0.1, i === arp.length - 1 ? 0.25 : 0.1, 0.7));
       break;
     }
+    case 'chat': // チャット着信：sine 1318→1568 の2音（控えめ・他の音の半分）
+      tone('sine', 1318, 1318, t, 0.04, 0.35);
+      tone('sine', 1568, 1568, t + 0.04, 0.04, 0.35);
+      break;
   }
 }
