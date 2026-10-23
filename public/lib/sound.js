@@ -114,5 +114,8 @@ export function play(name) {
     case 'tick': // 残り5秒からの秒読み：sine 880Hz 30ms（小さめ）
       tone('sine', 880, 880, t, 0.03, 0.25);
       break;
+    case 'dice': // ダイスを振る：短いノイズ40msを6回、間隔50ms（カラカラ）
+      for (let k = 0; k < 6; k++) noise(t + k * 0.05, 0.04, 1200, 0.6, 'bandpass');
+      break;
   }
 }
