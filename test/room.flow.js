@@ -11,8 +11,9 @@ process.env.PORT = String(PORT);
 process.env.COUNTDOWN_MS = '500'; // テストでは短くする（本番は3000ms）
 const COUNTDOWN = 500;
 
-require('../server.js'); // サーバーを同一プロセスで起動
+const serverApi = require('../server.js'); // サーバーを同一プロセスで起動
 const { io: ioc } = require('socket.io-client');
+const { REACTIONS } = require('../lib/reactions');
 
 const URL = `http://localhost:${PORT}`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -22,11 +23,26 @@ class Client {
   constructor(label) {
     this.label = label;
     this.last = null;
+    this.chat = [];       // 受け取った chat:message
+    this.history = null;  // 最後に受け取った chat:history
     this.socket = ioc(URL, { forceNew: true, transports: ['websocket'], reconnection: false });
     this.socket.on('room:update', u => { this.last = u; });
+    this.socket.on('chat:message', m => { this.chat.push(m); });
+    this.socket.on('chat:history', list => { this.history = list; });
   }
   emit(ev, data = {}) {
     return new Promise(res => this.socket.emit(ev, data, res));
+  }
+  // 条件を満たす chat:message まで待つ
+  waitChat(pred, timeout = 2000) {
+    return new Promise((resolve, reject) => {
+      const found = this.chat.find(pred);
+      if (found) return resolve(found);
+      const onMsg = m => { if (pred(m)) { cleanup(); resolve(m); } };
+      const t = setTimeout(() => { cleanup(); reject(new Error(`${this.label}: chat wait timeout`)); }, timeout);
+      const cleanup = () => { clearTimeout(t); this.socket.off('chat:message', onMsg); };
+      this.socket.on('chat:message', onMsg);
+    });
   }
   // 条件を満たす room:update まで待つ（すでに満たしていれば即返す）
   wait(pred = () => true, timeout = 3000) {
@@ -241,6 +257,168 @@ async function scenario11() {
   console.log('  ✓ 11 ホスト離脱で参加者にホストが移る');
 }
 
+// ゲーム中の観戦者つき部屋を作る（seesAll を指定して開始まで進める）
+async function roomWithSpectator(seesAll) {
+  const { host, code, token } = await createRoom('cucumber', 'H');
+  const { c: p2 } = await join(code, 'P2');
+  const { c: p3 } = await join(code, 'P3');
+  await p3.emit('lobby:role', { role: 'spectator' });
+  await host.wait(u => member(u, p3.last.you)?.role === 'spectator');
+  if (seesAll) {
+    await host.emit('lobby:settings', { spectatorSeesAll: true });
+    await host.wait(u => u.settings.spectatorSeesAll === true);
+  }
+  await host.emit('lobby:ready', { on: true });
+  await p2.emit('lobby:ready', { on: true });
+  await p3.emit('lobby:ready', { on: true });
+  await host.wait(u => u.phase === 'playing', COUNTDOWN + 2000);
+  await p3.wait(u => u.phase === 'playing');
+  return { host, p2, p3, code, token };
+}
+
+// ---- 12（6-1）：メッセージが全員に届く／履歴は100件で古いものから消える ----
+async function chat12() {
+  const { host, code } = await createRoom('cucumber', 'H');
+  const { c: p2 } = await join(code, 'P2');
+  p2.chat = [];
+  const r = await host.emit('chat:send', { text: 'こんにちは' });
+  assert(r.ok, 'c12: 送信できない');
+  const m = await p2.waitChat(x => x.text === 'こんにちは');
+  assert(m && m.kind === 'user', 'c12: 相手に届かない');
+
+  // 100件上限（pushChat を直接呼んで確認）
+  const fake = { members: [], gamePlayerIds: [], phase: 'lobby', settings: { spectatorSeesAll: false }, gameId: 'cucumber', chat: [] };
+  for (let i = 0; i < 105; i++) serverApi.pushChat(fake, { kind: 'user', channel: 'all', fromId: 'x', fromName: 'x', text: `#${i}` });
+  assert.strictEqual(fake.chat.length, 100, 'c12: 100件に収まっていない');
+  assert.strictEqual(fake.chat[0].text, '#5', 'c12: 古いものが消えていない');
+  console.log('  ✓ 12 メッセージが届く・履歴は100件上限');
+}
+
+// ---- 13（6-2）：141文字・空・空白は送れない ----
+async function chat13() {
+  const { host } = await createRoom('cucumber', 'H');
+  assert((await host.emit('chat:send', { text: 'あ'.repeat(141) })).error, 'c13: 141文字が通る');
+  assert((await host.emit('chat:send', { text: '' })).error, 'c13: 空が通る');
+  assert((await host.emit('chat:send', { text: '   ' })).error, 'c13: 空白が通る');
+  assert((await host.emit('chat:send', { text: 'い'.repeat(140) })).ok, 'c13: 140文字が通らない');
+  console.log('  ✓ 13 141文字・空・空白は送れない');
+}
+
+// ---- 14（6-3）：3秒で6件目はエラー ----
+async function chat14() {
+  const { host } = await createRoom('cucumber', 'H');
+  let res;
+  for (let i = 0; i < 5; i++) res = await host.emit('chat:send', { text: `m${i}` });
+  assert(res.ok, 'c14: 5件目まではOKのはず');
+  const sixth = await host.emit('chat:send', { text: 'm5' });
+  assert(sixth.error && /待って/.test(sixth.error), `c14: 6件目がエラーでない (${JSON.stringify(sixth)})`);
+  console.log('  ✓ 14 3秒で6件目はエラー');
+}
+
+// ---- 15（6-4）：XSS 文字列はそのまま保存・配信される（サーバーは変換しない） ----
+async function chat15() {
+  const { host, code } = await createRoom('cucumber', 'H');
+  const { c: p2 } = await join(code, 'P2');
+  p2.chat = [];
+  const payload = '<img src=x onerror=alert(1)>';
+  await host.emit('chat:send', { text: payload });
+  const m = await p2.waitChat(x => x.kind === 'user');
+  assert.strictEqual(m.text, payload, 'c15: サーバーが文字列を変換している');
+  console.log('  ✓ 15 XSS 文字列は変換せずそのまま配信');
+}
+
+// ---- 16（6-5）：seesAll=true のゲーム中、観戦者の発言は観戦席のみ（プレイヤーに届かない） ----
+async function chat16() {
+  const { host, p2, p3 } = await roomWithSpectator(true);
+  host.chat = []; p2.chat = []; p3.chat = [];
+  const r = await p3.emit('chat:send', { text: 'みえてる？' });
+  assert(r.ok, 'c16: 観戦者が送れない');
+  const mine = await p3.waitChat(x => x.text === 'みえてる？');
+  assert.strictEqual(mine.channel, 'spectators', 'c16: channel が spectators でない');
+  await sleep(300);
+  assert(!host.chat.some(x => x.text === 'みえてる？'), 'c16: プレイヤー(host)に届いてしまった');
+  assert(!p2.chat.some(x => x.text === 'みえてる？'), 'c16: プレイヤー(p2)に届いてしまった');
+  console.log('  ✓ 16 seesAll時、観戦者の発言はプレイヤーに届かない');
+}
+
+// ---- 17（6-6）：seesAll=false のゲーム中、観戦者の発言は全員に届く ----
+async function chat17() {
+  const { host, p3 } = await roomWithSpectator(false);
+  host.chat = [];
+  await p3.emit('chat:send', { text: 'ぜんいんに' });
+  const m = await host.waitChat(x => x.text === 'ぜんいんに');
+  assert(m && m.channel === 'all', 'c17: プレイヤーに届かない');
+  console.log('  ✓ 17 seesAll=false では観戦者の発言が全員に届く');
+}
+
+// ---- 18（6-7）：再接続の履歴には、その人が読めるものだけ入る ----
+async function chat18() {
+  const { host, p3, code, token } = await roomWithSpectator(true);
+  await p3.emit('chat:send', { text: 'ないしょ話' });  // 観戦席（プレイヤーは読めない）
+  await host.emit('chat:send', { text: 'みんなへ' });   // all
+  await sleep(200);
+  const host2 = mk('H-再');
+  await host2.emit('room:rejoin', { code, token });
+  await host2.wait(u => u.code === code);
+  await sleep(200);
+  assert(host2.history, 'c18: 履歴が届いていない');
+  assert(host2.history.some(x => x.text === 'みんなへ'), 'c18: all メッセージが履歴にない');
+  assert(!host2.history.some(x => x.text === 'ないしょ話'), 'c18: 観戦席メッセージが履歴に混ざっている');
+  console.log('  ✓ 18 再接続の履歴は読めるものだけ');
+}
+
+// ---- 19（6-8）：未定義の react キーはエラー ----
+async function chat19() {
+  const { host, code } = await createRoom('cucumber', 'H');
+  const { c: p2 } = await join(code, 'P2');
+  assert((await host.emit('chat:react', { key: 'nope' })).error, 'c19: 未定義キーが通る');
+  p2.chat = [];
+  assert((await host.emit('chat:react', { key: 'nice' })).ok, 'c19: 正しいキーが通らない');
+  const m = await p2.waitChat(x => x.kind === 'reaction');
+  assert.strictEqual(m.text, REACTIONS.nice, 'c19: リアクションの定型文が違う');
+  console.log('  ✓ 19 未定義の react キーはエラー');
+}
+
+// ---- 20（6-9）：入室・退室・開始・終了・ホスト交代でシステムメッセージが流れる ----
+async function chat20() {
+  // 入室
+  const { host, code } = await createRoom('cucumber', 'H');
+  assert(host.chat.some(x => x.kind === 'system' && /入室/.test(x.text)), 'c20: 入室メッセージがない');
+  const { c: p2 } = await join(code, 'P2');
+  await host.waitChat(x => x.kind === 'system' && /P2 さんが入室/.test(x.text));
+
+  // 開始・終了（三目並べを最後まで指す）
+  const { host: h2, code: c2 } = await createRoom('tictactoe', 'H2');
+  const { c: q2 } = await join(c2, 'Q2');
+  await h2.emit('lobby:ready', { on: true });
+  await q2.emit('lobby:ready', { on: true });
+  await h2.wait(u => u.phase === 'playing', COUNTDOWN + 2000);
+  await h2.waitChat(x => x.kind === 'system' && /第1戦 開始/.test(x.text));
+  // 空いているマスを順に埋めて必ず決着させる（盤面はホスト視点を正とする）
+  let guard = 0;
+  while (h2.last.phase === 'playing' && guard++ < 12) {
+    const turnId = h2.last.turnIds[0];
+    const c = [h2, q2].find(x => x.last && x.last.you === turnId);
+    const board = h2.last.view.board;
+    const filled = board.filter(cell => cell !== null).length;
+    const idx = board.findIndex(cell => cell === null);
+    await c.emit('game:action', { type: 'place', index: idx });
+    await h2.wait(u => u.phase !== 'playing'
+      || (u.view && u.view.board.filter(cell => cell !== null).length > filled), 1500);
+  }
+  await h2.waitChat(x => x.kind === 'system' && /ゲーム終了/.test(x.text));
+
+  // 退室・ホスト交代（ロビーでホストが抜ける）
+  const { host: h3, code: c3 } = await createRoom('cucumber', 'H3');
+  const { c: q3 } = await join(c3, 'Q3');
+  await q3.wait(u => u.code === c3);
+  q3.chat = [];
+  await h3.emit('room:leave');
+  await q3.waitChat(x => x.kind === 'system' && /退出/.test(x.text));
+  await q3.waitChat(x => x.kind === 'system' && /ホストになりました/.test(x.text));
+  console.log('  ✓ 20 入室・退室・開始・終了・ホスト交代のシステムメッセージ');
+}
+
 async function main() {
   console.log('部屋の流れテスト開始…');
   const t0 = Date.now();
@@ -255,7 +433,16 @@ async function main() {
   await scenario9();
   await scenario10();
   await scenario11();
-  console.log(`\n✅ 部屋の流れ 11 シナリオ 通過（${Date.now() - t0}ms）`);
+  await chat12();
+  await chat13();
+  await chat14();
+  await chat15();
+  await chat16();
+  await chat17();
+  await chat18();
+  await chat19();
+  await chat20();
+  console.log(`\n✅ 部屋の流れ ＋ チャット 全シナリオ 通過（${Date.now() - t0}ms）`);
 }
 
 main()
