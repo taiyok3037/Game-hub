@@ -18,7 +18,8 @@ const MAX_TOKENS = 10;
 // ---- データ（枚数・お題数の期待値のため、テストでも読む） ----
 const DATA = path.join(__dirname, '../games/meigen/data');
 const COMMON = JSON.parse(fs.readFileSync(path.join(DATA, 'common.json'), 'utf8'));
-const COMMON_TOTAL = COMMON.words.length;
+// 共通カードの山は words（ふつう）＋ chaos（カオス）。総数はゲーム中ずっと一定
+const COMMON_TOTAL = COMMON.words.length + (COMMON.chaos || []).length;
 const THEMES = fs.readdirSync(path.join(DATA, 'themes'))
   .filter(f => f.endsWith('.json'))
   .map(f => JSON.parse(fs.readFileSync(path.join(DATA, 'themes', f), 'utf8')));
@@ -41,12 +42,13 @@ const cov = {
   games: 0, flows: 0, overByTarget: 0, overByFew: 0,
 };
 
-// 共通カードの総数（手札＋山＋捨て札＋提出中）
+// 共通カード（ふつう＝common・カオス＝chaos）の総数（手札＋山＋捨て札＋提出中）
 function countCommon(state) {
+  const isCommon = c => c.kind === 'common' || c.kind === 'chaos';
   let c = 0;
-  for (const h of state.hands) c += h.length;
-  c += state.commonDeck.length + state.commonDiscard.length;
-  for (const sub of state.submissions) c += sub.cards.filter(x => x.kind === 'common').length;
+  for (const h of state.hands) c += h.filter(isCommon).length;
+  c += state.commonDeck.length + state.commonDiscard.length; // 山・捨て札は common/chaos のみ
+  for (const sub of state.submissions) c += sub.cards.filter(isCommon).length;
   return c;
 }
 
