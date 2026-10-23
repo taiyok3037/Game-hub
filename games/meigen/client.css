@@ -79,6 +79,18 @@
 .mg-compose-btns { display: flex; gap: 8px; align-items: center; }
 .mg-compose-btns .mg-submit { flex: 1; }
 
+/* 白紙カード（手書き風・点線で普通のカードと区別） */
+.mg-token.blank { border: 2px dashed #b89a5e; box-shadow: none; }
+.mg-token.blank .mg-token-body { background: #fffef8; font-family: "Yomogi", var(--font-body); }
+.mg-blank-area { margin-top: 2px; }
+.mg-blank-open { font-family: "Yomogi", var(--font-body); }
+.mg-blank-form { display: flex; gap: 6px; align-items: center; }
+.mg-blank-input {
+  flex: 1; min-width: 0; font-size: 15px; padding: 8px 10px;
+  font-family: "Yomogi", var(--font-body);
+  background: #fffef8; border: 2px dashed #b89a5e; border-radius: 8px;
+}
+
 .mg-cards { display: grid; gap: 6px; }
 .mg-cards-head { font-size: 12px; font-weight: 900; color: var(--felt-text); margin-top: 4px; }
 .mg-word-grid { display: flex; flex-wrap: wrap; gap: 6px; }

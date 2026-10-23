@@ -18,6 +18,7 @@ const stripTilde = s => String(s == null ? '' : s).replace(/^〜/, '');
 let last = null;         // { root, v, ctx }
 let composer = null;     // 作成中のトークン配列（token[]）
 let composerKey = null;  // round|phase（変わったら作り直す）
+let blankOpen = false;   // 白紙カードの入力欄を開いているか
 let judgePick = null;    // 親が仮選択した pos
 let judgeKey = null;
 let draftTimer = null;
@@ -45,9 +46,9 @@ export function render(root, v, ctx) {
   const amComposing = isPlayer && !isParent && v.phase === 'compose' && me && !me.submitted;
   const key = `${v.round}|${v.phase}`;
   if (amComposing) {
-    if (composerKey !== key) { composer = (v.myDraft || []).slice(); composerKey = key; }
+    if (composerKey !== key) { composer = (v.myDraft || []).slice(); composerKey = key; blankOpen = false; }
   } else {
-    composer = null; composerKey = null;
+    composer = null; composerKey = null; blankOpen = false;
   }
   // 親の仮選択の準備
   if (!(isParent && v.phase === 'judge')) { judgePick = null; judgeKey = null; }
@@ -55,8 +56,10 @@ export function render(root, v, ctx) {
 
   // カード id → 文字列（プレビュー・トークン表示用）
   const cardText = new Map([...(v.myHand || []), ...(v.myThemeHand || [])].map(c => [c.id, c.text]));
-  const tokenText = tk => tk.t === 'chip' ? tk.text : (cardText.get(tk.id) || '');
-  const previewOf = toks => toks.map(tk => stripTilde(tokenText(tk))).join('');
+  const tokenText = tk => tk.t === 'chip' ? tk.text : tk.t === 'blank' ? tk.text : (cardText.get(tk.id) || '');
+  // 表示用：カードだけ先頭の「〜」を取り除く（白紙・チップはそのまま）
+  const tokenDisplay = tk => tk.t === 'card' ? stripTilde(tokenText(tk)) : tokenText(tk);
+  const previewOf = toks => toks.map(tokenDisplay).join('');
 
   // ---- お題カード ----
   const children = v.players.filter(p => !p.parent && !p.left).length;
@@ -123,7 +126,7 @@ export function render(root, v, ctx) {
         <span class="mg-theme-btn-inst">${esc(t.instruction)}</span>
       </button>`).join('')}</div>`;
   } else if (v.phase === 'compose' && amComposing) {
-    center = composeUI(v, ctx, { composer, previewOf, tokenText });
+    center = composeUI(v, ctx, { composer, previewOf, tokenDisplay });
   } else if (v.phase === 'compose' && isPlayer && !isParent && me && me.submitted) {
     center = `
       <div class="mg-waiting paper">
@@ -166,18 +169,18 @@ export function render(root, v, ctx) {
 }
 
 // ---------- 作成UI（子） ----------
-function composeUI(v, ctx, { composer, previewOf, tokenText }) {
+function composeUI(v, ctx, { composer, previewOf, tokenDisplay }) {
   const { esc } = ctx;
   const usedIds = new Set(composer.filter(t => t.t === 'card').map(t => t.id));
   const strip = composer.length
     ? composer.map((tk, i) => `
         <span class="mg-token ${tk.t}">
           <button class="mg-move" data-move="${i}" data-dir="-1" ${i === 0 ? 'disabled' : ''} aria-label="左へ">‹</button>
-          <button class="mg-token-body" data-remove="${i}" aria-label="外す">${esc(stripTilde(tokenText(tk)))}</button>
+          <button class="mg-token-body" data-remove="${i}" aria-label="外す">${esc(tokenDisplay(tk))}</button>
           <button class="mg-move" data-move="${i}" data-dir="1" ${i === composer.length - 1 ? 'disabled' : ''} aria-label="右へ">›</button>
         </span>`).join('')
     : '<span class="mg-strip-empty">カードやチップをタップして並べよう</span>';
-  const valid = composer.length >= 1 && composer.length <= 10 && composer.some(t => t.t === 'card');
+  const valid = composer.length >= 1 && composer.length <= 10 && composer.some(t => t.t === 'card' || t.t === 'blank');
   const preview = previewOf(composer);
 
   const themeCards = (v.myThemeHand || []).map(c =>
@@ -186,6 +189,20 @@ function composeUI(v, ctx, { composer, previewOf, tokenText }) {
     `<button class="mg-word mg-common ${usedIds.has(c.id) ? 'used' : ''}" data-add-card="${c.id}">${esc(c.text)}</button>`).join('');
   const chips = (v.connectors || []).map(t =>
     `<button class="mg-chip" data-add-chip="${esc(t)}">${esc(t)}</button>`).join('');
+
+  // 白紙カード（残り枚数は、持ち分から作成中に入れている分を引く）
+  const blankInComposer = composer.filter(t => t.t === 'blank').length;
+  const blanksLeft = Math.max(0, (v.myBlanksLeft || 0) - blankInComposer);
+  const blankArea = (v.myBlanksLeft || 0) > 0 ? `
+    <div class="mg-blank-area">
+      ${blankOpen ? `
+        <div class="mg-blank-form">
+          <input class="mg-blank-input" maxlength="10" placeholder="好きな言葉（1〜10文字）" autocomplete="off" enterkeyhint="done">
+          <button class="btn primary small mg-blank-add" ${blanksLeft > 0 ? '' : 'disabled'}>追加</button>
+          <button class="btn ghost small mg-blank-cancel">やめる</button>
+        </div>`
+      : `<button class="btn ghost small mg-blank-open" ${blanksLeft > 0 ? '' : 'disabled'}>✎ 白紙（残り${blanksLeft}）</button>`}
+    </div>` : '';
 
   return `
     <div class="mg-compose">
@@ -202,6 +219,7 @@ function composeUI(v, ctx, { composer, previewOf, tokenText }) {
         <div class="mg-word-grid">${themeCards || '<span class="muted">なし</span>'}</div>
         <div class="mg-cards-head">手札</div>
         <div class="mg-word-grid">${commonCards}</div>
+        ${blankArea}
         <div class="mg-cards-head">つなぎ言葉（何回でも使える）</div>
         <div class="mg-chips">${chips}</div>
       </div>
@@ -345,6 +363,28 @@ function wireEvents(root, v, ctx, { previewOf }) {
     if (submit) submit.onclick = () => { submit.disabled = true; ctx.send({ type: 'submit', tokens: composer }); };
     const clear = compose.querySelector('.mg-clear');
     if (clear) clear.onclick = () => { composer = []; last.v.myDraft = []; scheduleDraft(ctx); rerender(); };
+
+    // 白紙カード：入力欄を開く／やめる／追加
+    const blankOpenBtn = compose.querySelector('.mg-blank-open');
+    if (blankOpenBtn) blankOpenBtn.onclick = () => { blankOpen = true; rerender(); setTimeout(() => compose.querySelector('.mg-blank-input')?.focus(), 0); };
+    const blankCancel = compose.querySelector('.mg-blank-cancel');
+    if (blankCancel) blankCancel.onclick = () => { blankOpen = false; rerender(); };
+    const blankInput = compose.querySelector('.mg-blank-input');
+    const blankAdd = compose.querySelector('.mg-blank-add');
+    const addBlank = () => {
+      const text = (blankInput?.value || '').trim();
+      if (!text) return ctx.toast('白紙カードに言葉を書いてください');
+      if ([...text].length > 10) return ctx.toast('白紙カードは10文字までです');
+      if (composer.length >= 10) return ctx.toast('トークンは10個までです');
+      const left = (v.myBlanksLeft || 0) - composer.filter(t => t.t === 'blank').length;
+      if (left <= 0) return ctx.toast('白紙カードの残りがありません');
+      composer.push({ t: 'blank', text });
+      blankOpen = false;
+      ctx.sound('card');
+      scheduleDraft(ctx); rerender();
+    };
+    if (blankAdd) blankAdd.onclick = addBlank;
+    if (blankInput) blankInput.addEventListener('keydown', e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addBlank(); } });
   }
 
   const unsub = root.querySelector('.mg-unsubmit');
