@@ -803,3 +803,23 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 #sheet .chat-log { height: 52dvh; }
 #sheet #sheet-rules { overflow: auto; max-height: 62dvh; }
 #sheet #sheet-rules h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
+
+/* リアクションの吹き出し（席の上に2秒） */
+.reaction-bubble {
+  position: fixed; z-index: 60;
+  background: var(--gold); color: #3a2414;
+  font-weight: 900; font-size: 14px; white-space: nowrap;
+  padding: 4px 10px; border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.3);
+  pointer-events: none;
+  animation: reaction-pop .18s ease-out;
+}
+.reaction-bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--gold); border-bottom: 0;
+}
+@keyframes reaction-pop {
+  from { transform: translateY(6px) scale(.8); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .reaction-bubble { animation: none; } }

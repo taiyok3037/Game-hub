@@ -86,8 +86,25 @@ function chatComposeChannel(r) {
   return (r.phase === 'playing' && r.settings && r.settings.spectatorSeesAll && r.yourRole !== 'player')
     ? 'spectators' : 'all';
 }
-// step 5 までは何もしない（席の上の吹き出し）。先に参照されても安全なように空で用意
-function showReaction() {}
+// リアクションを、送った人の席の上に吹き出しで2秒出す。
+// 席（[data-member-id]）が見つからない（ロビー・席を描かないゲーム）ときは上部トースト。
+function showReaction(m) {
+  const seat = (currentScreen === 'game' && m.fromId)
+    ? $(`#game-root [data-member-id="${m.fromId}"]`)
+    : null;
+  if (!seat) {
+    toast(`${m.fromName || '観戦者'}：${m.text}`);
+    return;
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'reaction-bubble';
+  bubble.textContent = m.text;
+  document.body.appendChild(bubble);
+  const rect = seat.getBoundingClientRect();
+  bubble.style.left = `${rect.left + rect.width / 2 - bubble.offsetWidth / 2}px`;
+  bubble.style.top = `${rect.top - bubble.offsetHeight - 6}px`;
+  setTimeout(() => bubble.remove(), 2000);
+}
 
 // ---------- チャット／ルールのタブとボトムシート ----------
 const mqMobile = window.matchMedia('(max-width: 767px)');

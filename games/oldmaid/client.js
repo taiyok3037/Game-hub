@@ -65,7 +65,7 @@ export function render(root, v, ctx) {
         <div class="felt">
           <div class="seats">
             ${others.map(p => `
-              <div class="seat ${p.id === v.currentId ? 'turn' : ''} ${p.id === v.targetId ? 'target' : ''} ${p.rank ? 'done' : ''}">
+              <div class="seat ${p.id === v.currentId ? 'turn' : ''} ${p.id === v.targetId ? 'target' : ''} ${p.rank ? 'done' : ''}" data-member-id="${p.id}">
                 <div class="om-mini-fan">
                   ${(n => Array.from({ length: n }, (_, i) => backHTML({ cls: 'mini', attrs: fanStyle(i, n, 10) })).join(''))(Math.min(p.count, 5))}
                 </div>

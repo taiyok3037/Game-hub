@@ -91,7 +91,7 @@ export function render(root, v, ctx) {
     if (p.out) cls += ' done';
     const reveal = p.hand ? `<div class="cu-reveal">${p.hand.map(c => cardHTML(c, { cls: 'sm' })).join('')}</div>` : '';
     return `
-      <div class="seat cu-seat ${cls}">
+      <div class="seat cu-seat ${cls}" data-member-id="${p.id}">
         <span class="seat-chip">${esc(p.name)}</span>
         ${badge || `<span class="seat-info">${p.left ? '退席' : p.out ? '脱落' : ''}</span>`}
         ${reveal}
