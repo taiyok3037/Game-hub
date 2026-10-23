@@ -4,7 +4,7 @@
 
 ## 構成
 - `server.js` … 共通基盤。ルーム（4文字コード）・ロビー・再接続・退出処理・`games/` の自動読み込み。**ゲーム固有の処理は書かない**
-- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数
+- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数、`chat.js` にルームチャット。クイックリアクションの定型文は `lib/reactions.js`（サーバー共通・`/lib/reactions.js` で配信）
 - `games/<id>/server.js` … ルール。`setup / action / view / isOver`（任意で `onLeave / turnOf / onConnectionChange / isOut / spectatorView`）を持つ
 - `games/<id>/client.js` … `export function render(root, view, ctx)`。毎回まるごと描き直す
 - `games/<id>/client.css` … そのゲームだけの見た目
@@ -15,6 +15,8 @@
 - 隠し情報（他人の手札・山札など）は `view(state, playerId)` で必ず外す。他人の手札は枚数だけ送る
 - 隠し情報があるゲームは `spectatorView(state, { seesAll, viewerId })` を必ず書く。`seesAll=false`（既定）では **プレイヤー全員に見えている情報だけ** を返す（誰か1人にでも隠れている情報は出さない）。脱落・上がり・退席した人は `isOut(state, playerId)` で true を返すと、観戦者と同じ見え方になる
 - ルール違反は `{ error: '日本語メッセージ' }` を返す（例外を投げない）
+- ユーザーが入力した文字列（名前・チャットなど）は必ずエスケープして表示する（`textContent` か `esc()`）。生の文字列を `innerHTML` に入れない。HTMLとして解釈させない
+- 席を描くゲームは、席の要素に `data-member-id="<id>"` を付ける（基盤がその上にリアクションの吹き出しを重ねる）
 - `games/<id>` のフォルダ名と `id` を一致させる
 - 見た目は卓上カフェ風に統一：卓は `.felt`、案内は `.note`、席は `.seats/.seat/.seat-chip`、トランプは `cardHTML()/backHTML()`、手札は `.hand`、記録は `.log`。色は `style.css` の CSS変数を使う
 - 紙色の面（パネルや結果パネルなど）には `.paper` を付ける（上に置くボタンの色が自動で紙向けに切り替わる。`.btn.ghost` は木目・フェルト用の明るい色なので、紙の上では `.paper` がないと見えにくい）
