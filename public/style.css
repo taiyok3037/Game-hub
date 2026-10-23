@@ -295,6 +295,61 @@ input:focus { border-color: var(--red); }
 }
 .leave-btn { margin-top: 14px; }
 
+/* 参加／観戦の2択（radiogroup） */
+.lobby-choice { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 4px; }
+.lobby-opt {
+  font: inherit; font-weight: 900; font-size: 15px;
+  padding: 12px; border-radius: 12px;
+  border: 2px solid var(--paper-line); background: var(--paper-light);
+  color: var(--ink-soft); cursor: pointer;
+}
+.lobby-opt.on { background: var(--red); color: #fff; border-color: var(--red-dark); }
+.lobby-opt:disabled { opacity: .45; cursor: not-allowed; }
+.lobby-note { margin: 2px 0 0; font-size: 13px; }
+
+/* 準備OKボタンの金色パルス（A-3 と同じ考え方） */
+.pulse { animation: lobby-pulse 2s ease-in-out infinite; }
+@keyframes lobby-pulse {
+  0%, 100% { box-shadow: 0 4px 0 var(--red-dark), 0 0 0 0 rgba(255,209,102,0); }
+  50%      { box-shadow: 0 4px 0 var(--red-dark), 0 0 16px 3px rgba(255,209,102,.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse { animation: none; outline: 2px solid var(--gold); }
+}
+
+/* カウントダウン */
+.lobby-countdown { font-family: var(--font-title); font-size: 24px; color: var(--red); text-align: center; margin: 14px 0 2px; }
+.lobby-cd-num { font-size: 44px; }
+.small-note { font-size: 12px; margin: 0; }
+.lobby-status { font-weight: 700; color: var(--ink-soft); margin-top: 12px; }
+
+/* 参加・観戦の一覧 */
+.lobby-lists { display: grid; gap: 14px; margin-top: 18px; text-align: left; }
+.lobby-group-head { font-weight: 900; margin-bottom: 6px; }
+.lobby-ready-mark { width: 1.4em; text-align: center; color: var(--ink-soft); flex-shrink: 0; }
+.player-list li.ready .lobby-ready-mark { color: #2e8b57; }
+.lobby-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+
+/* ホスト専用：観戦者の見え方トグル・強制開始 */
+.lobby-host { margin-top: 18px; padding: 12px 14px; display: grid; gap: 8px; text-align: left; }
+.lobby-switch {
+  display: flex; align-items: center; gap: 10px;
+  font: inherit; font-weight: 900; font-size: 15px;
+  color: var(--ink); background: none; border: none; cursor: pointer; padding: 0;
+}
+.lobby-switch-track {
+  width: 44px; height: 26px; border-radius: 999px; flex-shrink: 0;
+  background: var(--paper-line); position: relative; transition: background .15s;
+}
+.lobby-switch[aria-checked="true"] .lobby-switch-track { background: var(--red); }
+.lobby-switch-thumb {
+  position: absolute; top: 3px; left: 3px; width: 20px; height: 20px;
+  border-radius: 50%; background: #fff; transition: left .15s;
+}
+.lobby-switch[aria-checked="true"] .lobby-switch-thumb { left: 21px; }
+.lobby-switch-desc { font-size: 12px; margin: 0; }
+.lobby-host .btn.ghost { justify-self: start; }
+
 /* ---------- ゲーム画面 ---------- */
 .game-bar {
   display: flex;
