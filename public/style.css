@@ -788,7 +788,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
     display: flex; flex-direction: column;
   }
   #screen-lobby.chat-open #lobby-chat-slot .chat { flex: 1; min-height: 0; }
-  #screen-lobby.chat-open #lobby-chat-slot .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
+  /* 伸び縮みするのはメッセージ一覧だけ（見出し・リアクション・入力欄は縮まない） */
+  #screen-lobby.chat-open #lobby-chat-slot .chat-log { flex: 1 1 auto; height: auto; min-height: 0; overflow-y: auto; }
 }
 
 /* =============================================================
@@ -834,7 +835,7 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 }
 
 .chat-new {
-  align-self: center; margin-top: 4px;
+  align-self: center; margin-top: 4px; flex-shrink: 0;
   font: inherit; font-size: 12px; font-weight: 900;
   color: #fff; background: var(--red); border: none;
   border-radius: 999px; padding: 4px 14px; cursor: pointer;
@@ -842,6 +843,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 
 .chat-reactions {
   display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px;
+  /* メッセージが増えても縦に潰れない（縮むのはメッセージ一覧だけ） */
+  flex-shrink: 0;
   /* スクロールバーは隠す（横スクロール自体は残す） */
   scrollbar-width: none;
   /* 右端をうっすら薄くして「まだ続きがある」ことを示す */
@@ -858,14 +861,14 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 }
 .chat-chip:active { transform: translateY(1px); }
 
-.chat-form { display: flex; gap: 8px; align-items: stretch; }
+.chat-form { display: flex; gap: 8px; align-items: stretch; flex-shrink: 0; }
 .chat-form .chat-input { flex: 1; min-width: 0; font-size: 16px; padding: 8px 12px; }
 .chat-send { flex: 0 0 auto; align-self: center; }
 .chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .chat-spec-mode .chat-input { border-color: #8aa0c8; background: #eef1f6; }
 
 /* チャットの見出し（タイトル・位置切替⇄・閉じる×） */
-.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-shrink: 0; }
 .chat-head-title { margin: 0; font-family: var(--font-title); font-size: 17px; }
 .chat-head-btns { display: flex; gap: 4px; }
 .chat-swap, .chat-close {
@@ -891,7 +894,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   }
   .chat-col .chat-head-btns { display: flex; }
   .chat-col .chat { flex: 1; min-height: 0; }
-  .chat-col .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
+  /* 伸び縮みするのはメッセージ一覧だけ（見出し・リアクション・入力欄は縮まない） */
+  .chat-col .chat-log { flex: 1 1 auto; height: auto; min-height: 0; overflow-y: auto; }
 }
 /* 閉じているときはチャット列を消して卓を広げる（PC） */
 #screen-game.chat-closed #chat-col { display: none; }
@@ -916,7 +920,9 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 #chat-sheet .sheet-head { justify-content: flex-end; }
 #chat-sheet .sheet-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
 #chat-sheet .chat { flex: 1; min-height: 0; }
-#chat-sheet .chat-log { height: 52dvh; }
+/* シートでも伸び縮みするのはメッセージ一覧だけ（リアクション・入力欄は縮まない） */
+#chat-sheet { height: 80dvh; }
+#chat-sheet .chat-log { flex: 1 1 auto; height: auto; min-height: 0; overflow-y: auto; }
 #rules-sheet .sheet-body { overflow: auto; max-height: 62dvh; }
 
 /* リアクションの吹き出し（席の上に2秒） */

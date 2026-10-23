@@ -69,6 +69,27 @@ async function checkRulesClosed(page, label) {
   console.log(`  ${ok ? '✓' : '✗'} ${label}: 本文非表示=${info.bodyHidden} 帯下に本文=${info.textBelow} (body offsetHeight=${info.bodyH})`);
 }
 
+// メッセージを50件入れても、リアクション列の高さが空のときと変わらない（潰れない）か
+const reactionChecks = [];
+async function checkReactions(page, label, logSel, reactSel) {
+  const empty = await page.$eval(reactSel, el => el.offsetHeight);
+  await page.evaluate(sel => {
+    const log = document.querySelector(sel);
+    for (let i = 0; i < 50; i++) {
+      const d = document.createElement('div');
+      d.className = 'chat-msg other';
+      d.dataset.shotsTest = '1';
+      d.innerHTML = `<div class="chat-bubble">テストメッセージ ${i}</div>`;
+      log.appendChild(d);
+    }
+  }, logSel);
+  await sleep(200);
+  const full = await page.$eval(reactSel, el => el.offsetHeight);
+  const ok = empty > 0 && full === empty;
+  reactionChecks.push({ label, empty, full, ok });
+  console.log(`  ${ok ? '✓' : '✗'} ${label}: リアクション列の高さ 空=${empty}px / 50件=${full}px`);
+}
+
 // --- 2人でダイス領土戦を開始する ---
 const host = await browser.newContext();
 const hp = await host.newPage();
@@ -105,6 +126,14 @@ await sleep(600);
 // ゲーム画面のチャット入力欄チェック（既定：チャット右・開いている）
 console.log('ゲーム画面のチャット入力欄チェック:');
 await checkInput(hp, 'ゲーム', '#chat-col .chat-input');
+
+// リアクション列が、メッセージが50件に増えても潰れない（空と同じ高さ）か
+console.log('リアクション列の高さチェック:');
+await hp.setViewportSize({ width: 1280, height: 720 });
+await sleep(200);
+await checkReactions(hp, 'ゲーム列', '#chat-col .chat-log', '#chat-col .chat-reactions');
+// 差し込んだテスト用メッセージは消す（以降のスクショを汚さない）
+await hp.evaluate(() => document.querySelectorAll('#chat-col .chat-log [data-shots-test]').forEach(n => n.remove()));
 
 // ルール欄を閉じたときの確認（1920×1080）＋スクショ。390px は PC のルール帯が
 // 出ない（スマホはシート）ので、閉じた状態のゲーム画面をそのまま撮る。
@@ -162,16 +191,20 @@ await browser.close();
 // 集計
 const ng = checks.filter(c => !c.ok);
 const rulesNg = rulesChecks.filter(c => !c.ok);
+const reactNg = reactionChecks.filter(c => !c.ok);
 console.log('\n--- チャット入力欄チェック結果 ---');
 for (const c of checks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label} ${c.size}: bottom=${c.bottom} innerH=${c.inner}`);
 console.log('--- ルール欄を閉じたときのチェック結果 ---');
 for (const c of rulesChecks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label}: 本文非表示=${c.bodyHidden} 帯下に本文=${c.textBelow}`);
-if (ng.length || rulesNg.length) {
+console.log('--- リアクション列の高さチェック結果 ---');
+for (const c of reactionChecks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label}: 空=${c.empty}px / 50件=${c.full}px`);
+if (ng.length || rulesNg.length || reactNg.length) {
   if (ng.length) console.log(`\n❌ 入力欄 ${ng.length} 件が画面外`);
   if (rulesNg.length) console.log(`❌ ルール欄 ${rulesNg.length} 件で本文が覗いている`);
+  if (reactNg.length) console.log(`❌ リアクション列 ${reactNg.length} 件が潰れている`);
   console.log('完了(スクショ):', OUT);
   process.exit(1);
 }
-console.log(`\n✅ 入力欄は全 ${checks.length} ケースで画面内／ルール欄は閉じると本文が隠れている`);
+console.log(`\n✅ 入力欄は画面内／ルール欄は閉じると隠れる／リアクション列は50件でも潰れない`);
 console.log('完了(スクショ):', OUT);
 process.exit(0);
