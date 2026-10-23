@@ -3,6 +3,7 @@
 //  ゲームごとの画面は /games/<id>/client.js の render() に任せる
 // =============================================================
 import { play as soundPlay, setMuted, isMuted } from '/lib/sound.js';
+import { createChat } from '/chat.js';
 
 const socket = io();
 const $ = s => document.querySelector(s);
@@ -61,6 +62,21 @@ const call = (event, data = {}) => new Promise(res => socket.emit(event, data, r
 
 // 効果音。ctx.sound(name) から呼ぶ
 const sound = name => soundPlay(name);
+
+// ---------- チャット（ロビー・ゲーム共通で1つ） ----------
+const chat = createChat({ socket, sound, toast });
+socket.on('chat:history', list => chat.setHistory(list));
+socket.on('chat:message', m => {
+  chat.addMessage(m);
+  if (m.kind === 'reaction') showReaction(m); // 席の上の吹き出し（step 5 で実装）
+});
+// いまチャットを送ると届くチャンネル（観戦席かどうか）を入力欄に反映する
+function chatComposeChannel(r) {
+  return (r.phase === 'playing' && r.settings && r.settings.spectatorSeesAll && r.yourRole !== 'player')
+    ? 'spectators' : 'all';
+}
+// step 5 までは何もしない（席の上の吹き出し）。先に参照されても安全なように空で用意
+function showReaction() {}
 
 // ---------- ミュート切替ボタン ----------
 const SVG_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
@@ -181,6 +197,12 @@ function renderLobby(r) {
   const me = r.members.find(m => m.id === r.you);
   $('#lobby-game').textContent = r.gameName;
   $('#lobby-code').textContent = r.code;
+
+  // チャットをロビー欄に置く（ロビーは常に「全員」チャンネル・常に見えている）
+  chat.setSelf(r.you);
+  chat.setComposeChannel('all');
+  $('#lobby-chat-slot').appendChild(chat.el);
+  chat.setVisible(true);
 
   const players = r.members.filter(m => m.role === 'player');
   const spectators = r.members.filter(m => m.role === 'spectator');
