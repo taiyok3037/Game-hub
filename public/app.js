@@ -335,8 +335,18 @@ async function renderGame(r) {
   show('game');
   $('#game-title').textContent = r.gameName;
   $('#game-code').textContent = r.code;
-  const offline = r.players.filter(p => !p.connected);
-  $('#game-offline').textContent = offline.length ? `📡 接続待ち: ${offline.map(p => p.name).join('、')}` : '';
+  const offline = r.members.filter(m => !m.connected);
+  $('#game-offline').textContent = offline.length ? `📡 接続待ち: ${offline.map(m => m.name).join('、')}` : '';
+
+  // 自分の立場タグ（観戦者・脱落者）
+  const youTag = $('#game-you-tag');
+  let tag = '';
+  if (r.yourRole === 'spectator') tag = '観戦中';
+  else if (r.yourRole === 'out') tag = r.gameId === 'oldmaid' ? '上がり — 観戦中' : '脱落 — 観戦中';
+  youTag.textContent = tag;
+  youTag.hidden = !tag;
+  // 設定がオンのときは全員に知らせる
+  $('#game-spectate-note').textContent = r.settings && r.settings.spectatorSeesAll ? '観戦者には手札が見えています' : '';
 
   const finished = r.phase === 'finished';
   const isHost = r.hostId === r.you;
@@ -367,12 +377,14 @@ async function renderGame(r) {
 
   mod.render($('#game-root'), r.view, {
     me: r.you,
-    players: r.players,
+    players: r.members,
     finished,
     isHost,
     prev,
     yourTurn: !!r.yourTurn,
     turnIds: r.turnIds || [],
+    role: r.yourRole,                                   // 'player' | 'spectator' | 'out'
+    seesAll: !!(r.settings && r.settings.spectatorSeesAll),
     esc,
     toast,
     sound,
@@ -383,8 +395,27 @@ async function renderGame(r) {
     },
   });
 
+  renderSpectators(r); // 観戦者一覧は基盤側で描く（各ゲームの対応は不要）
+
   lastView = r.view;
   lastViewKey = key;
+}
+
+// 「観戦（N人）」の一覧。.g-side があれば一番下に、なければ卓の下に出す
+function renderSpectators(r) {
+  const root = $('#game-root');
+  const old = root.querySelector('.g-spectators');
+  if (old) old.remove();
+  const specs = r.members.filter(m => !r.gamePlayerIds.includes(m.id));
+  if (!specs.length) return;
+  const html = `
+    <div class="g-spectators">
+      <h3>観戦（${specs.length}）</h3>
+      <ul>${specs.map(m => `<li class="${m.connected ? '' : 'offline'}">${esc(m.name)}${m.id === r.you ? '<span class="you">あなた</span>' : ''}</li>`).join('')}</ul>
+    </div>`;
+  const side = root.querySelector('.g-side');
+  if (side) side.insertAdjacentHTML('beforeend', html);
+  else (root.querySelector('.g-main') || root).insertAdjacentHTML('beforeend', html);
 }
 
 $('#back-lobby').addEventListener('click', async () => {

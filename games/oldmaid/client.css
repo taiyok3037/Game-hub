@@ -26,3 +26,6 @@
 .om-hand { flex-wrap: nowrap; padding-left: 0; padding-right: 0; }
 .om-hand .pcard { transform-origin: bottom center; margin: 0 0 0 var(--ov); }
 .om-hand .pcard:first-child { margin-left: 0; }
+
+/* 観戦（設定オン）で各席の手札を表に出すとき */
+.om-reveal { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; margin-top: 4px; max-width: 120px; }

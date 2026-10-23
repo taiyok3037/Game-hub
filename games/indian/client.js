@@ -28,7 +28,8 @@ export function render(root, v, ctx) {
   const { esc } = ctx;
   const name = id => esc((v.players.find(p => p.id === id) || {}).name || '?');
   playSound(v, ctx); // 効果音（ctx.prev との差分で最大1つ）
-  const myTurn = v.phase === 'declare' && v.currentId === ctx.me;
+  const isPlayer = ctx.role === 'player';
+  const myTurn = isPlayer && v.phase === 'declare' && v.currentId === ctx.me;
   const justRevealed = ctx.prev && ctx.prev.phase === 'declare' && v.phase !== 'declare';
 
   // ---- 宣言の順番（最初の人から時計回り）に生存者を並べる ----
@@ -187,11 +188,12 @@ function readyPanel(v, ctx, name) {
   const iPressed = ready.includes(ctx.me);
   const list = need.map(id =>
     `<li class="${ready.includes(id) ? 'ok' : ''}">${ready.includes(id) ? '✓' : '待ち'} ${name(id)}</li>`).join('');
+  const isPlayer = ctx.role === 'player';
   return `
     <div class="ip-ready">
       <div class="ip-ready-head">準備OK ${readyCount} / ${need.length}</div>
       <ul class="ip-ready-list">${list}</ul>
-      <button class="btn ${iPressed ? '' : 'primary'} ip-ready-btn ${iPressed ? '' : 'ip-pulse'}">${iPressed ? '取り消す' : '準備OK'}</button>
+      ${isPlayer ? `<button class="btn ${iPressed ? '' : 'primary'} ip-ready-btn ${iPressed ? '' : 'ip-pulse'}">${iPressed ? '取り消す' : '準備OK'}</button>` : ''}
       ${ctx.isHost ? '<button class="btn ghost small ip-force">待たずに次へ</button>' : ''}
     </div>`;
 }

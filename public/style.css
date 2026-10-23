@@ -382,6 +382,32 @@ input:focus { border-color: var(--red); }
 .offline-list { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
 .offline-list:empty { display: none; }
 
+/* 自分が観戦者・脱落者のときのタグ（ゲームバー） */
+.you-tag {
+  font-size: 12px; font-weight: 900;
+  background: var(--gold); color: #3a2414;
+  border-radius: 6px; padding: 2px 8px; letter-spacing: .04em;
+}
+/* 「観戦者には手札が見えています」の案内（全員に見せる） */
+.spectate-note { color: var(--gold); font-size: 13px; font-weight: 700; margin-bottom: 8px; }
+.spectate-note:empty { display: none; }
+
+/* 観戦者一覧（基盤が g-side／卓の下に描く） */
+.g-spectators {
+  background: var(--paper); color: var(--ink);
+  border-radius: 12px; padding: 10px 14px;
+  box-shadow: 0 4px 0 rgba(0,0,0,.25);
+  margin-top: 14px;
+}
+.g-spectators h3 { margin: 0 0 6px; font-size: 14px; }
+.g-spectators ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.g-spectators li {
+  background: var(--paper-light); border: 2px solid var(--paper-line);
+  border-radius: 999px; padding: 3px 10px; font-weight: 700; font-size: 13px;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.g-spectators li.offline { opacity: .5; }
+
 /* フェルトの卓：ゲームはこの中に描かれる */
 .felt {
   background: var(--felt);
