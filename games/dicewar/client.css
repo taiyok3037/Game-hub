@@ -1,0 +1,47 @@
+/* ダイス領土戦の見た目 */
+
+/* ---- 地図（SVG） ---- */
+.dw-map-wrap { margin: 8px 0; }
+.dw-map { width: 100%; height: auto; display: block; max-height: 62vh; }
+.dw-cell { cursor: pointer; }
+.dw-border { stroke: #3a2414; stroke-width: 2.4; stroke-linecap: round; }
+
+/* 強調オーバーレイ（タップは下のマスへ通す） */
+.dw-ov { pointer-events: none; }
+.dw-ov.dw-can { fill: #ffffff; opacity: .22; }
+.dw-ov.dw-sel { fill: #ffd166; opacity: .5; stroke: #b8860b; stroke-width: 2; }
+.dw-ov.dw-target { fill: #ffffff; opacity: .15; animation: dw-blink 1.1s ease-in-out infinite; }
+@keyframes dw-blink { 50% { opacity: .5; } }
+@media (prefers-reduced-motion: reduce) { .dw-ov.dw-target { animation: none; opacity: .4; } }
+
+/* ダイス数のラベル */
+.dw-label { pointer-events: none; }
+.dw-label-bg { fill: #fffaf0; stroke: #3a2414; stroke-width: 1; }
+.dw-label.dw-max .dw-label-bg { stroke: #e8b33a; stroke-width: 2.4; }
+.dw-label-num { fill: #2a1a10; font-weight: 900; font-size: 11px; text-anchor: middle; font-family: var(--font-body); }
+.dw-label-owner { fill: #2a1a10; font-weight: 900; font-size: 7px; text-anchor: middle; opacity: .8; }
+
+/* ---- 操作 ---- */
+.dw-controls { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 6px; }
+.dw-controls .dw-end { min-width: 180px; }
+.dw-info { text-align: center; font-size: 13px; font-weight: 700; color: var(--felt-text); min-height: 1.2em; }
+
+/* ---- 右側：プレイヤー一覧 ---- */
+.dw-players { background: var(--paper); color: var(--ink); border-radius: 12px; padding: 10px 14px; box-shadow: 0 4px 0 rgba(0,0,0,.25); }
+.dw-players h3 { margin: 0 0 8px; font-size: 14px; }
+.dw-pl { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-top: 1px dashed var(--paper-line); }
+.dw-pl:first-of-type { border-top: none; }
+.dw-pl.current { font-weight: 900; }
+.dw-pl.current .dw-pl-name::after { content: '◀'; margin-left: 6px; color: var(--red); }
+.dw-pl.out { opacity: .45; }
+.dw-pl.me .dw-pl-name { text-decoration: underline; }
+.dw-pl-chip { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; box-shadow: inset 0 0 0 1px rgba(0,0,0,.25); }
+.dw-pl-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
+.dw-pl-stat { font-size: 12px; font-weight: 700; text-align: right; white-space: nowrap; }
+.dw-pl-sub { color: var(--ink-soft); font-weight: 500; }
+
+/* ---- スマホ幅 ---- */
+@media (max-width: 440px) {
+  .dw-map { max-height: 54vh; }
+  .dw-controls .dw-end { min-width: 150px; }
+}
