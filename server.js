@@ -279,6 +279,7 @@ function startGame(room) {
 function returnToLobby(room) {
   const game = games[room.gameId];
   clearCountdown(room);
+  clearTimer(room);
   room.phase = 'lobby';
   room.state = null;
   room.gamePlayerIds = [];
@@ -293,10 +294,44 @@ function returnToLobby(room) {
   }
 }
 
+// ---------- タイマー（締め切り・3-2） ----------
+// ゲームの deadline(state) を見て、ルームごとにタイマーを1つだけ張り直す
+function armTimer(room, deadlineAt) {
+  if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+  if (deadlineAt == null) return;
+  const delay = Math.max(0, deadlineAt - Date.now());
+  room.timer = setTimeout(() => fireTimeout(room), delay);
+}
+
+function clearTimer(room) {
+  if (room.timer) { clearTimeout(room.timer); room.timer = null; }
+}
+
+// 締め切りが来たとき。onTimeout → isOver の確認 → broadcast
+function fireTimeout(room) {
+  room.timer = null;
+  if (room.phase !== 'playing' || !room.state) return;
+  const game = games[room.gameId];
+  if (typeof game.onTimeout !== 'function') return;
+  // 発火時に deadline がまだ未来なら（状態が変わっていたら）何もしない
+  let dl = null;
+  try { dl = typeof game.deadline === 'function' ? game.deadline(room.state) : null; } catch (e) { console.error(e); }
+  if (dl == null || dl > Date.now() + 50) return;
+  try { game.onTimeout(room.state, roomInfo(room)); } catch (e) { console.error(e); }
+  if (game.isOver(room.state)) finishGame(room);
+  broadcast(room);
+}
+
 // ---------- 画面に送る（broadcast） ----------
 function broadcast(room) {
   room.lastActive = Date.now();
   const game = games[room.gameId];
+  // 締め切り（ゲームが deadline を持っていれば）。タイマーを張り直す
+  let deadlineAt = null;
+  if (room.phase === 'playing' && room.state && typeof game.deadline === 'function') {
+    try { deadlineAt = game.deadline(room.state); } catch (e) { console.error(e); }
+  }
+  armTimer(room, deadlineAt);
   // いま操作を待っている人（手番）。ゲームが turnOf を持っていれば使う
   let turnIds = [];
   if (room.state && typeof game.turnOf === 'function') {
@@ -329,6 +364,8 @@ function broadcast(room) {
       settings: room.settings,
       options: room.options,
       optionDefs: gameOptionDefs(game),
+      deadline: deadlineAt,
+      serverNow: Date.now(), // クライアントが時計のずれを補正するため
       countdownEndsAt: room.countdown ? room.countdown.endsAt : null,
       you: m.id,
       yourRole: roleOf(game, room, m.id),
@@ -389,6 +426,7 @@ function removeMember(room, memberId) {
     if (typeof game.onLeave === 'function' && game.onLeave(room.state, memberId) !== false) {
       room.notice = `${member.name} さんが抜けました`;
     } else {
+      clearTimer(room);
       room.phase = 'lobby';
       room.state = null;
       room.gamePlayerIds = [];
@@ -403,6 +441,7 @@ function removeMember(room, memberId) {
   room.gamePlayerIds = room.gamePlayerIds.filter(id => id !== memberId);
   if (room.members.length === 0) {
     clearCountdown(room);
+    clearTimer(room);
     rooms.delete(room.code);
     return;
   }
@@ -435,6 +474,7 @@ io.on('connection', socket => {
       settings: { spectatorSeesAll: false },
       options: defaultOptions(game),
       countdown: null,
+      timer: null,
       chat: [],
       gameNo: 0,
       lastActive: Date.now(),
@@ -658,6 +698,7 @@ setInterval(() => {
     const anyone = room.members.some(m => m.connected);
     if (!anyone && now - room.lastActive > 30 * 60_000) {
       clearCountdown(room);
+      clearTimer(room);
       rooms.delete(room.code);
     }
   }

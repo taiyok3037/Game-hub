@@ -850,3 +850,16 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   to   { transform: none; opacity: 1; }
 }
 @media (prefers-reduced-motion: reduce) { .reaction-bubble { animation: none; } }
+
+/* ---------- 共通タイマー（lib/timer.js） ---------- */
+.timer {
+  display: inline-flex; align-items: baseline; gap: 2px;
+  font-family: var(--font-title); font-weight: 700;
+  color: var(--felt-text);
+}
+.timer-num { font-size: 28px; line-height: 1; }
+.timer-unit { font-size: 14px; }
+.timer.danger { color: var(--gold); }
+.timer.danger .timer-num { animation: timer-pulse .5s ease-in-out infinite alternate; }
+@keyframes timer-pulse { from { transform: scale(1); } to { transform: scale(1.18); } }
+@media (prefers-reduced-motion: reduce) { .timer.danger .timer-num { animation: none; } }

@@ -111,5 +111,8 @@ export function play(name) {
       tone('sine', 1318, 1318, t, 0.04, 0.35);
       tone('sine', 1568, 1568, t + 0.04, 0.04, 0.35);
       break;
+    case 'tick': // 残り5秒からの秒読み：sine 880Hz 30ms（小さめ）
+      tone('sine', 880, 880, t, 0.03, 0.25);
+      break;
   }
 }

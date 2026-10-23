@@ -598,6 +598,8 @@ async function renderGame(r) {
     turnIds: r.turnIds || [],
     role: r.yourRole,                                   // 'player' | 'spectator' | 'out'
     seesAll: !!(r.settings && r.settings.spectatorSeesAll),
+    deadline: r.deadline != null ? r.deadline : null,   // 締め切りの時刻（ms・サーバー時計）
+    clockOffset: r.clockOffset || 0,                    // サーバーとの時計のずれ
     esc,
     toast,
     sound,
@@ -638,6 +640,8 @@ $('#back-lobby').addEventListener('click', async () => {
 
 // ---------- 通信 ----------
 socket.on('room:update', r => {
+  // サーバーとの時計のずれ（サーバー時刻 ≈ 自分の時刻 + clockOffset）
+  r.clockOffset = typeof r.serverNow === 'number' ? r.serverNow - Date.now() : 0;
   room = r;
   if (r.notice) toast(r.notice);
   if (r.phase === 'lobby') {
