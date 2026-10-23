@@ -129,6 +129,18 @@
 .mg-phrase-text { font-family: var(--font-title); font-size: 18px; font-weight: 700; word-break: break-word; }
 .mg-phrase-you { font-size: 11px; font-weight: 900; color: var(--red); flex-shrink: 0; }
 
+/* 1枚ずつ発表：裏向きの短冊とめくる演出 */
+.mg-phrase.facedown {
+  background: var(--card-back); color: #fff; cursor: default; justify-content: center;
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.14) 0 6px, transparent 6px 12px);
+}
+.mg-phrase-back { font-family: var(--font-title); font-weight: 700; font-size: 16px; opacity: .9; }
+.mg-phrase.flip-in { animation: mg-flip .4s ease; transform-origin: center; }
+@keyframes mg-flip { from { transform: rotateY(90deg); } to { transform: rotateY(0); } }
+@media (prefers-reduced-motion: reduce) { .mg-phrase.flip-in { animation: none; } }
+.mg-reveal-btns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 2px; }
+.mg-reveal-btns .mg-reveal { flex: 1; }
+
 /* ---- 発表・決着 ---- */
 .mg-result { border-radius: 12px; padding: 14px; display: grid; gap: 10px; }
 .mg-winner { text-align: center; font-family: var(--font-title); font-size: 24px; font-weight: 700; color: var(--red); }

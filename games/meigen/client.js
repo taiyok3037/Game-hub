@@ -229,26 +229,49 @@ function composeUI(v, ctx, { composer, previewOf, tokenDisplay }) {
 // ---------- 選考UI ----------
 function judgeUI(v, ctx, { isParent }) {
   const { esc } = ctx;
-  const items = (v.phrases || []).map(ph => `
-    <li class="mg-phrase ${isParent && judgePick === ph.pos ? 'picked' : ''} ${ph.mine ? 'mine' : ''}"
-        ${isParent ? `data-pick="${ph.pos}"` : ''}>
-      <span class="mg-phrase-text">${esc(ph.text)}</span>
-      ${ph.mine ? '<span class="mg-phrase-you">あなた</span>' : ''}
-    </li>`).join('');
-  const canConfirm = isParent && judgePick != null;
+  const total = v.phraseCount != null ? v.phraseCount : (v.phrases || []).length;
+  const revealed = v.revealed != null ? v.revealed : total;
+  const fullyRevealed = revealed >= total;
+  const canPick = isParent && fullyRevealed;
+  const prevRevealed = (ctx.prev && ctx.prev.revealed != null) ? ctx.prev.revealed : revealed;
+
+  const items = (v.phrases || []).map(ph => {
+    const flipped = 'text' in ph; // めくられている
+    const justFlipped = flipped && v.revealMode === 'one' && ph.pos >= prevRevealed;
+    const cls = [
+      flipped ? 'flipped' : 'facedown',
+      justFlipped ? 'flip-in' : '',
+      canPick && judgePick === ph.pos ? 'picked' : '',
+      ph.mine ? 'mine' : '',
+    ].join(' ');
+    const inner = flipped
+      ? `<span class="mg-phrase-text">${esc(ph.text)}</span>${ph.mine ? '<span class="mg-phrase-you">あなた</span>' : ''}`
+      : `<span class="mg-phrase-back">＃${ph.pos + 1}</span>${ph.mine ? '<span class="mg-phrase-you">あなた</span>' : ''}`;
+    return `<li class="mg-phrase ${cls}" ${canPick ? `data-pick="${ph.pos}"` : ''}>${inner}</li>`;
+  }).join('');
+
+  const parentReveal = isParent && v.revealMode === 'one' && !fullyRevealed ? `
+    <div class="mg-reveal-btns">
+      <button class="btn primary mg-reveal">次をめくる（${revealed}/${total}）</button>
+      <button class="btn ghost small mg-reveal-all">残りを全部めくる</button>
+    </div>` : '';
+
   return `
     <div class="mg-judge">
       <ul class="mg-phrases">${items}</ul>
-      ${isParent ? `<button class="btn primary big mg-confirm" ${canConfirm ? '' : 'disabled'}>これに決めた！</button>` : ''}
-      ${!isParent && ctx.isHost ? forcePickBtn(v, ctx) : ''}
+      ${parentReveal}
+      ${canPick ? `<button class="btn primary big mg-confirm" ${judgePick != null ? '' : 'disabled'}>これに決めた！</button>` : ''}
+      ${!isParent && ctx.isHost ? hostJudgeHelp(v, ctx, fullyRevealed) : ''}
     </div>`;
 }
 
-// 親が切断中のとき、ホストに「代わりに選ぶ」ボタン
-function forcePickBtn(v, ctx) {
+// 親が切断中のとき、ホストに「全部めくる」「代わりに選ぶ」ボタン
+function hostJudgeHelp(v, ctx, fullyRevealed) {
   const parent = (ctx.players || []).find(m => m.id === v.parentId);
   if (parent && parent.connected) return '';
-  return '<button class="btn ghost small mg-forcepick">親が不在：代わりにランダムで選ぶ</button>';
+  return `
+    ${!fullyRevealed ? '<button class="btn ghost small mg-reveal-all">親が不在：全部めくる</button>' : ''}
+    <button class="btn ghost small mg-forcepick">親が不在：代わりにランダムで選ぶ</button>`;
 }
 
 // ---------- 発表・決着UI ----------
@@ -390,6 +413,11 @@ function wireEvents(root, v, ctx, { previewOf }) {
   const unsub = root.querySelector('.mg-unsubmit');
   if (unsub) unsub.onclick = () => { unsub.disabled = true; ctx.send({ type: 'unsubmit' }); };
 
+  // めくる（親・1枚ずつ発表）
+  const reveal = root.querySelector('.mg-reveal');
+  if (reveal) reveal.onclick = () => { reveal.disabled = true; ctx.send({ type: 'reveal' }); };
+  root.querySelectorAll('.mg-reveal-all').forEach(b => { b.onclick = () => { b.disabled = true; ctx.send({ type: 'revealAll' }); }; });
+
   // 選考（親）
   root.querySelectorAll('[data-pick]').forEach(li => {
     li.onclick = () => { judgePick = Number(li.dataset.pick); rerender(); };
@@ -416,7 +444,8 @@ function playSound(v, ctx) {
   const subCount = x => (x.players || []).filter(pl => pl.submitted).length;
   if (p.phase !== 'over' && v.phase === 'over') snd = 'win';
   else if (v.phase === 'result' && p.phase !== 'result' && !v.flow && v.pickId) snd = (v.pickId === ctx.me ? 'win' : 'trick');
-  else if (v.phase === 'judge' && p.phase !== 'judge') snd = 'flip';
+  else if (v.phase === 'judge' && p.phase !== 'judge') snd = 'flip';            // 選考開始
+  else if (v.phase === 'judge' && v.revealed != null && p.revealed != null && v.revealed > p.revealed) snd = 'flip'; // 1枚めくった
   else if (subCount(v) > subCount(p)) snd = 'ready';
   if (snd) ctx.sound(snd);
 }

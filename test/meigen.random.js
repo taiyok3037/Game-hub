@@ -36,8 +36,10 @@ const makePlayers = n => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, nam
 
 const cov = {
   modeRandom: 0, modeParent: 0, modeFixed: 0,
+  revealOne: 0, revealAllMode: 0,
   chooseTheme: 0, timeoutTheme: 0, timeoutCompose: 0,
   draft: 0, submit: 0, unsubmit: 0, pick: 0, forcePick: 0,
+  reveal: 0, revealAll: 0, pickTooEarly: 0,
   ready: 0, disconnect: 0, reconnect: 0, leave: 0,
   games: 0, flows: 0, overByTarget: 0, overByFew: 0,
 };
@@ -114,6 +116,9 @@ function checkInvariants(state, players) {
       assert(v.results === undefined && v.pickId === undefined, 'judge: 作者つきの results/pickId が漏れている');
       for (const ph of v.phrases) {
         assert(keysSubsetOf(ph, ['pos', 'text', 'mine']), `judge: phrase に余計なキー（作者漏れの恐れ）: ${Object.keys(ph)}`);
+        // 1枚ずつ発表：めくった分（pos < revealed）だけ本文がある。めくる前は本文なし
+        if (ph.pos >= state.revealed) assert(!('text' in ph), 'judge: めくる前の本文が view に漏れている');
+        else assert('text' in ph, 'judge: めくった短冊に本文がない');
       }
     }
     // 本人視点では自分の作品にだけ mine が付く
@@ -169,11 +174,15 @@ function runOne(n) {
 
   const mode = pick(['random', 'parent', 'fixed']);
   cov['mode' + mode[0].toUpperCase() + mode.slice(1)]++;
+  const revealMode = pick(['one', 'all']);
+  cov[revealMode === 'one' ? 'revealOne' : 'revealAllMode']++;
   const options = {
     target: 3 + Math.floor(rnd() * 8),      // 3..10
     timeLimit: pick([30, 60, 90, 0]),
     themeMode: mode,
     fixedTheme: pick(THEMES).id,
+    revealMode,
+    blankCards: Math.floor(rnd() * 4),       // 0..3
   };
 
   const state = game.setup(players, options);
@@ -258,19 +267,48 @@ function runOne(n) {
     if (state.phase === 'judge') {
       const parentSeat = state.parent;
       const parentId = state.players[parentSeat].id;
-      if (parentId !== hostId && rnd() < 0.15) {
-        // 親が切断 → ホストが forcePick
+
+      // 親切断 → ホストが（必要なら全部めくって）forcePick
+      if (parentId !== hostId && rnd() < 0.12) {
         connected.delete(parentId);
+        if (rnd() < 0.5 && state.revealed < state.order.length) {
+          const r = game.action(state, hostId, { type: 'revealAll' }, room());
+          assert(!r || !r.error, `host revealAll エラー: ${r && r.error}`);
+          cov.revealAll++;
+        }
         const res = game.action(state, hostId, { type: 'forcePick' }, room());
         assert(!res || !res.error, `forcePick エラー: ${res && res.error}`);
         connected.add(parentId);
         cov.forcePick++;
-      } else {
-        const pos = Math.floor(rnd() * state.order.length);
-        const res = game.action(state, parentId, { type: 'pick', index: pos }, room());
-        assert(!res || !res.error, `pick エラー: ${res && res.error}`);
-        cov.pick++;
+        checkInvariants(state, players);
+        continue;
       }
+
+      // まだ全部めくっていない（1枚ずつ発表）→ めくる。たまに「めくる前の pick は拒否」を確認
+      if (state.revealed < state.order.length) {
+        if (rnd() < 0.1) {
+          const r = game.action(state, parentId, { type: 'pick', index: 0 }, room());
+          assert(r && r.error, 'めくり終わる前の pick は拒否されるべき');
+          cov.pickTooEarly++;
+        }
+        if (rnd() < 0.5) {
+          const r = game.action(state, parentId, { type: 'reveal' }, room());
+          assert(!r || !r.error, `reveal エラー: ${r && r.error}`);
+          cov.reveal++;
+        } else {
+          const r = game.action(state, parentId, { type: 'revealAll' }, room());
+          assert(!r || !r.error, `revealAll エラー: ${r && r.error}`);
+          cov.revealAll++;
+        }
+        checkInvariants(state, players);
+        continue;
+      }
+
+      // 全部めくれた → 選ぶ
+      const pos = Math.floor(rnd() * state.order.length);
+      const res = game.action(state, parentId, { type: 'pick', index: pos }, room());
+      assert(!res || !res.error, `pick エラー: ${res && res.error}`);
+      cov.pick++;
       checkInvariants(state, players);
       continue;
     }
@@ -333,6 +371,8 @@ const ms = Date.now() - t0;
 console.log('--- カバレッジ ---');
 console.log(cov);
 assert(cov.modeRandom && cov.modeParent && cov.modeFixed, 'テーマ3モードの網羅不足');
+assert(cov.revealOne && cov.revealAllMode, '発表モードの網羅不足');
+assert(cov.reveal && cov.revealAll && cov.pickTooEarly, '1枚ずつ発表の網羅不足');
 assert(cov.chooseTheme && cov.timeoutTheme && cov.timeoutCompose, 'テーマ選択/時間切れの網羅不足');
 assert(cov.draft && cov.submit && cov.unsubmit && cov.pick && cov.forcePick, '作成系の網羅不足');
 assert(cov.ready && cov.disconnect && cov.reconnect && cov.leave, '準備OK/切断/退席の網羅不足');
