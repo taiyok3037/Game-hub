@@ -18,7 +18,8 @@ const io = new Server(server);
 const PORT = process.env.PORT || 3000;
 
 const ROOM_CAP = 16;        // 観戦者を含めた部屋全体の上限
-const COUNTDOWN_MS = 3000;  // 準備OKがそろってから開始までのカウントダウン
+// 準備OKがそろってから開始までのカウントダウン（テストだけ環境変数で短縮できる）
+const COUNTDOWN_MS = Number(process.env.COUNTDOWN_MS) || 3000;
 
 // ---------- ゲームの自動読み込み ----------
 const GAMES_DIR = path.join(__dirname, 'games');
