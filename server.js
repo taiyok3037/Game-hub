@@ -622,8 +622,10 @@ io.on('connection', socket => {
       return cb({ error: 'エラーが起きました' });
     }
     if (result && result.error) return cb({ error: result.error });
-    if (game.isOver(room.state)) finishGame(room);
     cb({ ok: true });
+    // ゲームが「broadcast 不要」と返したら、状態の配信をしない（下書きの保存など）
+    if (result && result.silent) return;
+    if (game.isOver(room.state)) finishGame(room);
     broadcast(room);
   });
 
