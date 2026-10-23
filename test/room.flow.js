@@ -9,6 +9,7 @@ const assert = require('assert');
 const PORT = 3599;
 process.env.PORT = String(PORT);
 process.env.COUNTDOWN_MS = '500'; // テストでは短くする（本番は3000ms）
+process.env.MEIGEN_TIME_SCALE = '0.02'; // 迷言のタイマーを 1/50 に（60秒→1.2秒）
 const COUNTDOWN = 500;
 
 const serverApi = require('../server.js'); // サーバーを同一プロセスで起動
@@ -419,6 +420,65 @@ async function chat20() {
   console.log('  ✓ 20 入室・退室・開始・終了・ホスト交代のシステムメッセージ');
 }
 
+// ---- 21：ゲーム設定（lobby:option）の検証 ----
+async function option21() {
+  const { host, code } = await createRoom('meigen', 'HO');
+  const { c: p2 } = await join(code, 'P2');
+  await p2.wait(u => u.code === code);
+
+  assert((await host.emit('lobby:option', { key: 'target', value: 8 })).ok, 'o21: 正常な変更が通らない');
+  await host.wait(u => u.options && u.options.target === 8);
+  assert((await host.emit('lobby:option', { key: 'target', value: 99 })).error, 'o21: 範囲外（上）が通った');
+  assert((await host.emit('lobby:option', { key: 'target', value: 2 })).error, 'o21: 範囲外（下）が通った');
+  assert((await host.emit('lobby:option', { key: 'nope', value: 1 })).error, 'o21: 未知のキーが通った');
+  assert((await host.emit('lobby:option', { key: 'themeMode', value: 'xxx' })).error, 'o21: 不正な選択肢が通った');
+  assert((await p2.emit('lobby:option', { key: 'target', value: 5 })).error, 'o21: ホスト以外が変更できた');
+
+  // 変更すると全員の ready が外れる
+  await host.emit('lobby:ready', { on: true });
+  await p2.emit('lobby:ready', { on: true });
+  await host.wait(u => u.members.every(m => m.ready));
+  await host.emit('lobby:option', { key: 'themeMode', value: 'fixed' });
+  const u = await host.wait(u => u.options.themeMode === 'fixed');
+  assert(u.members.every(m => m.ready === false), 'o21: 設定変更で ready が外れていない');
+  console.log('  ✓ 21 ゲーム設定の検証（範囲外・ホスト限定・変更で ready 解除）');
+}
+
+// ---- 22：ゲーム設定はロビーに戻っても維持される ----
+async function option22() {
+  const { host, code } = await createRoom('meigen', 'HP');
+  const { c: p2 } = await join(code, 'P2');
+  const { c: p3 } = await join(code, 'P3');
+  await host.emit('lobby:option', { key: 'target', value: 7 });
+  await host.wait(u => u.options.target === 7);
+  await host.emit('lobby:ready', { on: true });
+  await p2.emit('lobby:ready', { on: true });
+  await p3.emit('lobby:ready', { on: true });
+  await host.wait(u => u.phase === 'playing', COUNTDOWN + 2000);
+  await host.emit('game:lobby');
+  const u = await host.wait(u => u.phase === 'lobby', 1500);
+  assert.strictEqual(u.options.target, 7, 'o22: ロビーに戻って設定が維持されていない');
+  console.log('  ✓ 22 ゲーム設定はロビーに戻っても維持');
+}
+
+// ---- 23：タイマー（deadline / onTimeout）で時間切れが処理される ----
+async function timer23() {
+  const { host, code } = await createRoom('meigen', 'HT');
+  const { c: p2 } = await join(code, 'P2');
+  const { c: p3 } = await join(code, 'P3');
+  await host.emit('lobby:ready', { on: true });
+  await p2.emit('lobby:ready', { on: true });
+  await p3.emit('lobby:ready', { on: true });
+  const playing = await host.wait(u => u.phase === 'playing', COUNTDOWN + 2000);
+  assert(playing.deadline != null, 't23: 開始直後に deadline が来ていない');
+  assert(typeof playing.serverNow === 'number', 't23: serverNow がない');
+  assert.strictEqual(playing.view.phase, 'compose', 't23: 作成フェーズでない');
+  // 締め切りを過ぎると基盤が onTimeout を呼ぶ。誰も提出しないのでラウンドが流れて result へ
+  const flowed = await host.wait(u => u.view && u.view.phase === 'result', 5000);
+  assert.strictEqual(flowed.view.phase, 'result', 't23: 時間切れで result に進んでいない');
+  console.log('  ✓ 23 タイマーで時間切れが処理される（deadline/onTimeout）');
+}
+
 async function main() {
   console.log('部屋の流れテスト開始…');
   const t0 = Date.now();
@@ -442,7 +502,10 @@ async function main() {
   await chat18();
   await chat19();
   await chat20();
-  console.log(`\n✅ 部屋の流れ ＋ チャット 全シナリオ 通過（${Date.now() - t0}ms）`);
+  await option21();
+  await option22();
+  await timer23();
+  console.log(`\n✅ 部屋の流れ ＋ チャット ＋ 設定/タイマー 全シナリオ 通過（${Date.now() - t0}ms）`);
 }
 
 main()
