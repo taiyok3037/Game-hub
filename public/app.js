@@ -176,7 +176,28 @@ function applyChatLayout() {
   const btn = $('#chat-btn');
   if (btn) btn.setAttribute('aria-expanded', String(chatOpen));
   chat.setSide(chatSide);
+  updateChatColHeight();
 }
+
+// チャット列の高さを「画面の高さ − 列の上端 − 16px」にする（360〜640px に収める）。
+// 列はゲームバーの下から始まるので、CSS だけでは合わせにくく JS で測って入れる。
+// resize・scroll でまとめて更新（rAF）。スマホ・1列のときは CSS が var を使わない。
+let chatHRaf = null;
+function updateChatColHeight() {
+  if (chatHRaf) return;
+  chatHRaf = requestAnimationFrame(() => {
+    chatHRaf = null;
+    const el = currentScreen === 'game' ? $('#chat-col')
+             : currentScreen === 'lobby' ? $('#lobby-chat-slot')
+             : null;
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    const h = Math.max(360, Math.min(640, window.innerHeight - Math.max(top, 16) - 16));
+    el.style.setProperty('--chat-h', `${Math.round(h)}px`);
+  });
+}
+window.addEventListener('resize', updateChatColHeight);
+window.addEventListener('scroll', updateChatColHeight, { passive: true });
 
 // 開閉・左右が変わったら、卓（SVGの地図など）を新しい幅に合わせて描き直させる。
 // 各ゲームは幅100%で描いているので、resize を1回出せばよい。
@@ -237,7 +258,7 @@ $('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 document.addEventListener('visibilitychange', updateChatVisible);
 mqMobile.addEventListener('change', () => {
   if (!isMobile()) { closeChatSheet(); closeRulesSheet(); } // PC幅に戻ったらシートは閉じる
-  if (currentScreen === 'game' || currentScreen === 'lobby') { mountChat(); updateChatVisible(); }
+  if (currentScreen === 'game' || currentScreen === 'lobby') { mountChat(); updateChatVisible(); updateChatColHeight(); }
 });
 
 // ---------- ミュート切替ボタン ----------

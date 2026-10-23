@@ -17,6 +17,8 @@ const OUT = path.join(__dirname, 'shots');
 fs.mkdirSync(OUT, { recursive: true });
 
 const WIDTHS = [1600, 1280, 1000, 900, 390];
+// 仕様08：チャット入力欄が画面内に収まるか確かめる画面サイズ
+const SIZES = [[1920, 1080], [1366, 768], [1280, 720], [1165, 870], [1000, 700]];
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const browser = await chromium.launch();
@@ -26,6 +28,22 @@ async function shot(page, name, width, height = 900) {
   await sleep(350);
   await page.screenshot({ path: path.join(OUT, `${name}.png`), fullPage: false });
   console.log('  📸', name);
+}
+
+// チャット入力欄の下端が画面内（rect.bottom <= innerHeight）にあるか各サイズで確認
+const checks = [];
+async function checkInput(page, label, inputSel) {
+  for (const [w, h] of SIZES) {
+    await page.setViewportSize({ width: w, height: h });
+    await sleep(300);
+    const info = await page.$eval(inputSel, el => {
+      const r = el.getBoundingClientRect();
+      return { bottom: Math.round(r.bottom), inner: window.innerHeight, w: Math.round(r.width) };
+    });
+    const ok = info.bottom <= info.inner && info.w > 0;
+    checks.push({ label, size: `${w}x${h}`, bottom: info.bottom, inner: info.inner, ok });
+    console.log(`  ${ok ? '✓' : '✗'} ${label} ${w}x${h}: 入力欄 bottom=${info.bottom} / innerH=${info.inner}`);
+  }
 }
 
 // --- 2人でダイス領土戦を開始する ---
@@ -46,6 +64,10 @@ await gp.fill('#join-code', code);
 await gp.click('#join-btn');
 await gp.waitForSelector('#lobby-code:not(:empty)', { timeout: 10000 });
 
+// ロビーのチャット入力欄チェック（2列表示）
+console.log('ロビーのチャット入力欄チェック:');
+await checkInput(hp, 'ロビー', '#lobby-chat-slot .chat-input');
+
 // ロビーのスクショ（ホスト側・900px、チャット右）
 await shot(hp, 'lobby-900', 900);
 await shot(hp, 'lobby-390', 390);
@@ -56,6 +78,10 @@ await hp.click('#force-start');
 await hp.waitForSelector('#screen-game:not([hidden])', { timeout: 10000 });
 await gp.waitForSelector('#screen-game:not([hidden])', { timeout: 10000 });
 await sleep(600);
+
+// ゲーム画面のチャット入力欄チェック（既定：チャット右・開いている）
+console.log('ゲーム画面のチャット入力欄チェック:');
+await checkInput(hp, 'ゲーム', '#chat-col .chat-input');
 
 // 既定（チャット右・開いている）で各幅
 for (const w of WIDTHS) await shot(hp, `game-open-right-${w}`, w);
@@ -91,5 +117,16 @@ await sleep(400);
 await shot(hp, 'game-390-rules-sheet', 390, 780);
 
 await browser.close();
-console.log('完了:', OUT);
+
+// 入力欄チェックの集計
+const ng = checks.filter(c => !c.ok);
+console.log('\n--- チャット入力欄チェック結果 ---');
+for (const c of checks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label} ${c.size}: bottom=${c.bottom} innerH=${c.inner}`);
+if (ng.length) {
+  console.log(`\n❌ ${ng.length} 件が画面外にはみ出しています`);
+  console.log('完了(スクショ):', OUT);
+  process.exit(1);
+}
+console.log(`\n✅ 入力欄は全 ${checks.length} ケースで画面内`);
+console.log('完了(スクショ):', OUT);
 process.exit(0);
