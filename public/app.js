@@ -255,6 +255,14 @@ $('#rules-sheet-close').addEventListener('click', closeRulesSheet);
 $('#rules-sheet').addEventListener('click', e => { if (e.target === $('#rules-sheet')) closeRulesSheet(); });
 $('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 
+// PCのルール欄（#rules-box）は基盤が1回だけ持つ。開閉状態を保存し、初期値は開く。
+const rulesBox = $('#rules-box');
+rulesBox.open = rulesOpen;
+rulesBox.addEventListener('toggle', () => {
+  rulesOpen = rulesBox.open;
+  lsSet(RULES_OPEN_KEY, rulesOpen ? '1' : '0');
+});
+
 document.addEventListener('visibilitychange', updateChatVisible);
 mqMobile.addEventListener('change', () => {
   if (!isMobile()) { closeChatSheet(); closeRulesSheet(); } // PC幅に戻ったらシートは閉じる
@@ -689,10 +697,13 @@ async function renderGame(r) {
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
 
-  // ルール（スマホは専用シート。PCは .g-side の折りたたみ欄 ＝ 手順2で追加）
+  // ルールは基盤が持つ #rules-box（PC・描き直されない）と #rules-sheet（スマホ）へ。
+  // ゲームの種類が決まったときに1回だけ入れ、以降の更新では触らない。
   currentRulesHtml = mod.rules || '<p class="muted">このゲームのルール説明はありません</p>';
   if (sideRulesGame !== r.gameId) {
+    $('#rules-body').innerHTML = currentRulesHtml;
     $('#rules-sheet-body').innerHTML = currentRulesHtml;
+    $('#side-slot').replaceChildren(); // 前のゲームのサイドが残らないよう空にする
     sideRulesGame = r.gameId;
   }
 
@@ -722,47 +733,34 @@ async function renderGame(r) {
     },
   });
 
-  mountRulesBox($('#game-root')); // ルール欄（.g-side の一番上。無ければ卓の下）
+  moveSideOut();       // ゲームが出した .g-side を、描き直されない #side-slot へ移す
   renderSpectators(r); // 観戦者一覧は基盤側で描く（各ゲームの対応は不要）
 
   lastView = r.view;
   lastViewKey = key;
 }
 
-// ルール欄（.g-side の一番上の折りたたみ。.g-side が無いゲームは卓の下）。
-// スマホでは CSS で隠し、専用のルールシートで見せる。
-function mountRulesBox(root) {
-  const old = root.querySelector('.rules-box');
-  if (old) old.remove();
-  const box = document.createElement('details');
-  box.className = 'rules-box paper';
-  box.open = rulesOpen;
-  box.innerHTML = `<summary>ルール</summary><div class="rules-box-body">${currentRulesHtml}</div>`;
-  // 開閉を保存して、次のゲームでも同じ状態にする
-  box.addEventListener('toggle', () => {
-    rulesOpen = box.open;
-    lsSet(RULES_OPEN_KEY, rulesOpen ? '1' : '0');
-  });
-  const side = root.querySelector('.g-side');
-  if (side) side.prepend(box);
-  else (root.querySelector('.g-main') || root).appendChild(box);
+// ゲームの render は毎回まるごと描き直す（しかも dicewar/cucumber/meigen は
+// 自前のタイマーでも描き直す）ので、その中に現れた .g-side を、描き直されない
+// 基盤側の #side-slot へ移す。これでルール欄（#rules-box）や観戦一覧が巻き添えで
+// 消えたり点滅したりしない。見つからないときは触らない（移動後の空振りを無視）。
+function moveSideOut() {
+  const gside = $('#game-root').querySelector('.g-side');
+  if (gside) $('#side-slot').replaceChildren(gside);
 }
+// #game-root に .g-side が現れるたびに（基盤経由でない自前の再描画でも）移す
+new MutationObserver(moveSideOut).observe($('#game-root'), { childList: true, subtree: true });
 
-// 「観戦（N人）」の一覧。.g-side があれば一番下に、なければ卓の下に出す
+// 「観戦（N人）」の一覧。基盤が持つ #spectators-slot に描く（ゲームの再描画と無関係）
 function renderSpectators(r) {
-  const root = $('#game-root');
-  const old = root.querySelector('.g-spectators');
-  if (old) old.remove();
+  const slot = $('#spectators-slot');
   const specs = r.members.filter(m => !r.gamePlayerIds.includes(m.id));
-  if (!specs.length) return;
-  const html = `
+  if (!specs.length) { slot.replaceChildren(); return; }
+  slot.innerHTML = `
     <div class="g-spectators">
       <h3>観戦（${specs.length}）</h3>
       <ul>${specs.map(m => `<li class="${m.connected ? '' : 'offline'}">${esc(m.name)}${m.id === r.you ? '<span class="you">あなた</span>' : ''}</li>`).join('')}</ul>
     </div>`;
-  const side = root.querySelector('.g-side');
-  if (side) side.insertAdjacentHTML('beforeend', html);
-  else (root.querySelector('.g-main') || root).insertAdjacentHTML('beforeend', html);
 }
 
 $('#back-lobby').addEventListener('click', async () => {

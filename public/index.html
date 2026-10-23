@@ -86,7 +86,17 @@
     <div id="game-offline" class="offline-list"></div>
     <div id="game-spectate-note" class="spectate-note"></div>
     <div id="game-grid" class="game-grid">
-      <div id="game-root" class="game-root"></div>
+      <div id="main-wrap" class="main-wrap">
+        <div id="game-root" class="game-root"></div>
+        <aside id="side-col" class="side-col">
+          <details id="rules-box" class="rules-box paper">
+            <summary>ルール</summary>
+            <div id="rules-body" class="rules-box-body"></div>
+          </details>
+          <div id="side-slot"></div>
+          <div id="spectators-slot"></div>
+        </aside>
+      </div>
       <aside id="chat-col" class="chat-col paper"></aside>
     </div>
     <div id="game-end" class="end-bar" hidden>
