@@ -53,7 +53,7 @@
     <div class="lobby-grid">
       <div class="panel lobby paper">
         <span class="label">招待コード</span>
-        <div class="room-code" id="lobby-code"></div>
+        <button id="lobby-code" type="button" class="room-code code-copy" title="クリックでコピー"><span id="lobby-code-text"></span><svg class="copy-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
         <button id="copy-link" class="btn ghost small">招待リンクをコピー</button>
         <div id="lobby-body"></div>
       </div>
@@ -69,7 +69,7 @@
     <header class="game-bar">
       <div class="game-bar-title">
         <span id="game-title"></span>
-        <span class="room-tag">卓 <span id="game-code"></span></span>
+        <button id="game-code-btn" type="button" class="room-tag code-copy" title="クリックでコピー">卓 <span id="game-code"></span><svg class="copy-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
         <span id="game-you-tag" class="you-tag" hidden></span>
       </div>
       <div class="game-bar-actions">

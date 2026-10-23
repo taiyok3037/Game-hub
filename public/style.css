@@ -396,6 +396,17 @@ input:focus { border-color: var(--red); }
   padding: 2px 8px;
   letter-spacing: .1em;
 }
+/* クリックでコピーできるルームコード（ゲームバー・ロビー共通） */
+button.code-copy {
+  cursor: pointer; border: none; font-family: inherit;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.room-tag.code-copy { color: var(--paper); transition: background .12s; }
+.room-tag.code-copy:hover { background: rgba(0,0,0,.45); }
+.room-code.code-copy { background: none; color: var(--red); transition: filter .12s; }
+.room-code.code-copy:hover { filter: brightness(1.12); }
+.copy-ico { width: 1em; height: 1em; opacity: .65; flex-shrink: 0; }
+.room-code .copy-ico { width: 24px; height: 24px; opacity: .55; }
 .game-bar .leave-btn { margin-top: 0; }
 .game-bar-actions { display: flex; align-items: center; gap: 8px; }
 .icon-btn {

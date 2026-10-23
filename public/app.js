@@ -461,7 +461,8 @@ function renderLobby(r) {
   const isHost = r.hostId === r.you;
   const me = r.members.find(m => m.id === r.you);
   $('#lobby-game').textContent = r.gameName;
-  $('#lobby-code').textContent = r.code;
+  $('#lobby-code-text').textContent = r.code;
+  $('#lobby-code').setAttribute('aria-label', `ルームコード ${r.code} をコピー`);
 
   // チャットをロビー欄に置く（ロビーは常に「全員」チャンネル・常に見えている）
   chat.setSelf(r.you);
@@ -595,6 +596,34 @@ $('#copy-link').addEventListener('click', async () => {
   }
 });
 
+// ルームコード（4文字）をコピーする。clipboard が無い・失敗したら textarea で、
+// それも駄目ならトーストで手入力を促す。
+async function copyRoomCode(code) {
+  if (!code) return;
+  const done = `ルームコード ${code} をコピーしました`;
+  try {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(code);
+      return toast(done);
+    }
+  } catch {}
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = code;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '-1000px';
+    document.body.appendChild(ta);
+    ta.select();
+    const ok = document.execCommand('copy');
+    ta.remove();
+    if (ok) return toast(done);
+  } catch {}
+  toast(`コピーできませんでした。${code} を手で入力してください`);
+}
+$('#game-code-btn').addEventListener('click', () => room && copyRoomCode(room.code));
+$('#lobby-code').addEventListener('click', () => room && copyRoomCode(room.code));
+
 for (const b of document.querySelectorAll('.leave-btn')) {
   b.addEventListener('click', async () => {
     if (room && room.phase === 'playing' && !confirm('ゲーム中です。本当に退出しますか？')) return;
@@ -628,6 +657,7 @@ async function renderGame(r) {
   show('game');
   $('#game-title').textContent = r.gameName;
   $('#game-code').textContent = r.code;
+  $('#game-code-btn').setAttribute('aria-label', `ルームコード ${r.code} をコピー`);
   const offline = r.members.filter(m => !m.connected);
   $('#game-offline').textContent = offline.length ? `📡 接続待ち: ${offline.map(m => m.name).join('、')}` : '';
 
