@@ -659,27 +659,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .g-main { min-width: 0; }
 .g-side { min-width: 0; display: grid; gap: 14px; align-content: start; }
 
-/* 外側：ゲーム本体（#game-root）＋ 右のルールパネル */
-.game-layout { display: grid; grid-template-columns: 1fr; gap: 16px; align-items: start; }
-
-/* ルールパネル（紙のパネル風・貼り付く） */
-.rules-panel {
-  background: var(--paper);
-  color: var(--ink);
-  border-radius: var(--radius);
-  box-shadow: 0 4px 0 rgba(0,0,0,.25);
-  padding: 14px 16px;
-  position: sticky;
-  top: 16px;
-  max-height: calc(100dvh - 32px);
-  overflow: auto;
-}
-.rules-panel h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
-.rules-panel ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
-.rules-panel li + li { margin-top: 4px; }
-
-/* ルールのボトムシート（スマホ） */
-.rules-sheet {
+/* スマホのボトムシート（チャット・ルール共通の枠） */
+.sheet {
   position: fixed;
   left: 0; right: 0; bottom: 0; top: auto;
   margin: 0;
@@ -691,29 +672,21 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   background: var(--paper);
   color: var(--ink);
   max-height: 80dvh;
-  overflow: auto;
+  overflow: hidden;
 }
-.rules-sheet::backdrop { background: rgba(0,0,0,.5); }
-.rules-sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-.rules-sheet h3 { margin: 0; font-family: var(--font-title); font-size: 20px; }
-.rules-sheet ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
+.sheet::backdrop { background: rgba(0,0,0,.5); }
+.sheet ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
 
-/* 767px 以下：1列。ルールは aside を隠してボトムシートで見る */
-@media (max-width: 767px) {
-  .rules-panel { display: none !important; }
-}
+/* ゲーム画面の外枠：卓（#game-root）＋ チャット列（#chat-col）。
+   幅ごとの列組み（開閉・左右）は「ゲーム画面のグリッド」節（手順3）で組む */
+.game-grid { display: grid; gap: 16px; align-items: start; }
 
-/* 768〜1099px：2列（左に本体、右にルール280px）。本体内は g-main → g-side の縦 */
+/* 本体内の g-layout（側＝得点表など ＋ 卓）。幅ごとの詳細は手順3で上書き */
 @media (min-width: 768px) {
   #screen-game { max-width: 1024px; }
-  .game-layout { grid-template-columns: minmax(0, 1fr) 280px; }
-  #chat-btn { display: none; }
 }
-
-/* 1100px 以上：3列。左 g-side(260)・中央 g-main(560)・右ルール(300)。全体 1240px */
 @media (min-width: 1100px) {
   #screen-game { max-width: 1240px; }
-  .game-layout { grid-template-columns: minmax(0, 1fr) 300px; }
   .g-layout {
     grid-template-columns: 260px minmax(0, 560px);
     justify-content: center;
@@ -788,32 +761,35 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .chat-spec-mode .chat-input { border-color: #8aa0c8; background: #eef1f6; }
 
-/* ゲーム画面：チャット／ルールのタブ（右列） */
-.game-side { display: none; }
+/* チャットの見出し（タイトル・位置切替⇄・閉じる×） */
+.chat-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+.chat-head-title { margin: 0; font-family: var(--font-title); font-size: 17px; }
+.chat-head-btns { display: flex; gap: 4px; }
+.chat-swap, .chat-close {
+  font: inherit; font-size: 16px; font-weight: 900; line-height: 1;
+  width: 32px; height: 32px; flex: 0 0 auto;
+  color: var(--ink-soft); background: var(--paper-light);
+  border: 2px solid var(--paper-line); border-radius: 8px; cursor: pointer;
+}
+.chat-swap:active, .chat-close:active { transform: translateY(1px); }
+/* ⇄・× は PC のチャット列でだけ使う（スマホのシート・ロビー下段では隠す） */
+.chat-head-btns { display: none; }
+
+/* PCのチャット列（#chat-col）：見出し→一覧（ここだけスクロール）→リアクション→入力 */
+.chat-col { display: none; }
 @media (min-width: 768px) {
-  .game-side {
+  .chat-col {
     display: flex; flex-direction: column;
     position: sticky; top: 16px;
-    max-height: calc(100dvh - 32px);
+    height: calc(100dvh - 32px);
     padding: 12px 14px;
   }
+  .chat-col .chat-head-btns { display: flex; }
+  .chat-col .chat { flex: 1; min-height: 0; }
+  .chat-col .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
 }
-.side-tabs { display: flex; gap: 6px; }
-.side-tab {
-  position: relative;
-  flex: 0 0 auto; font: inherit; font-weight: 900; font-size: 14px;
-  color: var(--ink-soft); background: var(--paper-light);
-  border: 2px solid var(--paper-line); border-radius: 999px;
-  padding: 5px 14px; cursor: pointer;
-}
-.side-tab.on { color: #fff; background: var(--red); border-color: var(--red-dark); }
-.game-side .side-tabs { margin-bottom: 10px; }
-.game-side .side-panel:not([hidden]) { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.game-side #side-chat:not([hidden]) { display: flex; overflow: hidden; }
-.game-side .chat { flex: 1; min-height: 0; }
-.game-side .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
 
-/* 未読バッジ（ゲームバーのチャットボタン・右列のチャットタブ） */
+/* 未読バッジ（ゲームバーのチャットボタン・閉じているときだけ） */
 .chat-btn { position: relative; }
 .chat-badge {
   display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 5px;
@@ -821,15 +797,20 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   color: #fff; background: var(--red); border-radius: 999px;
 }
 
-/* ボトムシート（スマホ）：チャット／ルールのタブ */
-#sheet[open] { display: flex; flex-direction: column; }
+/* ゲームバーのボタン（アイコン＋文字） */
+.bar-btn { display: inline-flex; align-items: center; gap: 5px; }
+.bar-btn-icon { font-size: 15px; line-height: 1; }
+
+/* ボトムシート（スマホ）：チャット・ルールで共通の枠 */
+.sheet[open] { display: flex; flex-direction: column; }
 .sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
-#sheet .sheet-panel:not([hidden]) { min-height: 0; }
-#sheet #sheet-chat:not([hidden]) { display: flex; flex-direction: column; }
-#sheet .chat { flex: 1; min-height: 0; }
-#sheet .chat-log { height: 52dvh; }
-#sheet #sheet-rules { overflow: auto; max-height: 62dvh; }
-#sheet #sheet-rules h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
+.sheet-title { margin: 0; font-family: var(--font-title); font-size: 18px; }
+.sheet-body { min-height: 0; }
+#chat-sheet .sheet-head { justify-content: flex-end; }
+#chat-sheet .sheet-body { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+#chat-sheet .chat { flex: 1; min-height: 0; }
+#chat-sheet .chat-log { height: 52dvh; }
+#rules-sheet .sheet-body { overflow: auto; max-height: 62dvh; }
 
 /* リアクションの吹き出し（席の上に2秒） */
 .reaction-bubble {

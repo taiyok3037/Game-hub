@@ -12,7 +12,8 @@ const NAME_KEY = 'gamehub-name';
 let games = [];
 let room = null;
 let currentScreen = 'home';
-let sideRulesGame = null; // ルールタブに今入っているゲームid
+let sideRulesGame = null; // ルール欄・シートに今入っているゲームid
+let currentRulesHtml = ''; // 今のゲームのルールHTML（.g-side の折りたたみ欄に使う）
 const modules = {}; // 読み込んだゲーム画面モジュールのキャッシュ
 
 // 前回描画した view（ctx.prev 用）。room.code か gameId が変わる・ロビーに戻る・再接続で null に戻す
@@ -72,7 +73,8 @@ function stubChat() {
   return {
     el,
     setSelf() {}, setHistory() {}, addMessage() {}, setVisible() {},
-    setComposeChannel() {}, setOnUnread() {}, get unread() { return 0; },
+    setComposeChannel() {}, setOnUnread() {}, setOnSwapSide() {}, setOnClose() {},
+    setSide() {}, get unread() { return 0; },
   };
 }
 let chat = stubChat();
@@ -84,14 +86,16 @@ socket.on('chat:message', m => {
 
 import('/chat.js').then(mod => {
   chat = mod.createChat({ socket, sound, toast });
+  // 未読バッジ（閉じているときだけ増える＝open のときは 0 のまま）
   chat.setOnUnread(n => {
-    for (const id of ['#chat-badge', '#tab-chat-badge']) {
-      const b = $(id);
-      if (!b) continue;
-      b.textContent = n > 99 ? '99+' : String(n);
-      b.hidden = n === 0;
-    }
+    const b = $('#chat-badge');
+    if (!b) return;
+    b.textContent = n > 99 ? '99+' : String(n);
+    b.hidden = n === 0;
   });
+  chat.setOnSwapSide(() => setChatSide(chatSide === 'left' ? 'right' : 'left'));
+  chat.setOnClose(() => setChatOpen(false));
+  applyChatLayout();
   // すでに部屋にいるなら、今の画面を描き直してチャットを差し込む
   if (room) { if (room.phase === 'lobby') renderLobby(room); else renderGame(room); }
 }).catch(e => console.error('チャットの読み込みに失敗しました（チャット以外は動作します）', e));
@@ -121,65 +125,120 @@ function showReaction(m) {
   setTimeout(() => bubble.remove(), 2000);
 }
 
-// ---------- チャット／ルールのタブとボトムシート ----------
+// ---------- チャットとルールの配置（PC列・スマホのシート・ロビー欄） ----------
+// 開閉・左右・ルールの開閉は、見ている人ごとに localStorage へ保存する。
+// 読み書きは必ず try/catch で囲み、使えない（シークレット等）ときは初期値で動く。
+const CHAT_OPEN_KEY = 'gamehub-chat-open';
+const CHAT_SIDE_KEY = 'gamehub-chat-side';
+const RULES_OPEN_KEY = 'gamehub-rules-open';
+function lsGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
+function lsSet(key, val) { try { localStorage.setItem(key, val); } catch {} }
+
+let chatOpen = lsGet(CHAT_OPEN_KEY) !== '0';            // 既定：開く
+let chatSide = lsGet(CHAT_SIDE_KEY) === 'left' ? 'left' : 'right'; // 既定：右
+let rulesOpen = lsGet(RULES_OPEN_KEY) !== '0';          // 既定：開く
+
 const mqMobile = window.matchMedia('(max-width: 767px)');
 const isMobile = () => mqMobile.matches;
-let activeTab = 'chat';   // 'chat' | 'rules'（右列・シート共通）
-let sheetOpen = false;
+let chatSheetOpen = false;  // スマホのチャットシートが開いているか
+let rulesSheetOpen = false; // スマホのルールシートが開いているか
 
-// ゲーム画面でチャットをどこに置くか（スマホでシートが開いていればシートへ）
-function mountChatForGame() {
-  const target = (isMobile() && sheetOpen) ? $('#sheet-chat') : $('#side-chat');
-  if (chat.el.parentElement !== target) target.appendChild(chat.el);
+// いまチャットの el を置くべき場所（1つの部品を付け替えて使い回す）
+function chatTarget() {
+  if (currentScreen === 'lobby') return $('#lobby-chat-slot');
+  if (isMobile() && chatSheetOpen) return $('#chat-sheet-slot');
+  return $('#chat-col'); // PCの列（スマホでシートを閉じているときは CSS で隠れている）
+}
+function mountChat() {
+  const target = chatTarget();
+  if (target && chat.el.parentElement !== target) target.appendChild(chat.el);
 }
 
 // チャットが「見えている」か（未読カウント用）
 function updateChatVisible() {
   let vis;
   if (currentScreen === 'lobby') vis = true;
-  else if (currentScreen === 'game') vis = isMobile() ? (sheetOpen && activeTab === 'chat') : (activeTab === 'chat');
+  else if (currentScreen === 'game') vis = isMobile() ? chatSheetOpen : chatOpen;
   else vis = false;
   chat.setVisible(vis && !document.hidden);
 }
 
-function setTab(tab) {
-  activeTab = tab;
-  for (const [btn, panel, t] of [
-    ['#tab-chat', '#side-chat', 'chat'], ['#tab-rules', '#side-rules', 'rules'],
-    ['#sheet-tab-chat', '#sheet-chat', 'chat'], ['#sheet-tab-rules', '#sheet-rules', 'rules'],
-  ]) {
-    const b = $(btn), p = $(panel);
-    if (b) { b.classList.toggle('on', t === tab); b.setAttribute('aria-selected', String(t === tab)); }
-    if (p) p.hidden = t !== tab;
+// PCの開閉・左右をゲーム画面・ロビーに反映する（CSSクラスで切り替え）
+function applyChatLayout() {
+  for (const sel of ['#screen-game', '#screen-lobby']) {
+    const s = $(sel);
+    if (!s) continue;
+    s.classList.toggle('chat-open', chatOpen);
+    s.classList.toggle('chat-closed', !chatOpen);
+    s.classList.toggle('chat-left', chatSide === 'left');
+    s.classList.toggle('chat-right', chatSide === 'right');
   }
-  mountChatForGame();
-  updateChatVisible();
+  const btn = $('#chat-btn');
+  if (btn) btn.setAttribute('aria-expanded', String(chatOpen));
+  chat.setSide(chatSide);
 }
-$('#tab-chat').onclick = () => setTab('chat');
-$('#tab-rules').onclick = () => setTab('rules');
-$('#sheet-tab-chat').onclick = () => setTab('chat');
-$('#sheet-tab-rules').onclick = () => setTab('rules');
 
-function openSheet() {
-  sheetOpen = true;
-  mountChatForGame();
-  $('#sheet').showModal();
+// 開閉・左右が変わったら、卓（SVGの地図など）を新しい幅に合わせて描き直させる。
+// 各ゲームは幅100%で描いているので、resize を1回出せばよい。
+function reflowGame() {
+  requestAnimationFrame(() => window.dispatchEvent(new Event('resize')));
+}
+function setChatOpen(open) {
+  chatOpen = open;
+  lsSet(CHAT_OPEN_KEY, open ? '1' : '0');
+  applyChatLayout();
+  mountChat();
+  updateChatVisible();
+  reflowGame();
+}
+function setChatSide(side) {
+  chatSide = side;
+  lsSet(CHAT_SIDE_KEY, side);
+  applyChatLayout();
+  reflowGame();
+}
+
+// ---- スマホのボトムシート（チャット・ルールは別々） ----
+function openChatSheet() {
+  chatSheetOpen = true;
+  mountChat();
+  $('#chat-sheet').showModal();
   updateChatVisible();
 }
-function closeSheet() {
-  if (!sheetOpen) return;
-  sheetOpen = false;
-  $('#sheet').close();
-  mountChatForGame(); // チャットを右列（非表示列）に戻す
+function closeChatSheet() {
+  if (!chatSheetOpen) return;
+  chatSheetOpen = false;
+  $('#chat-sheet').close();
+  mountChat();
   updateChatVisible();
 }
-$('#chat-btn').addEventListener('click', openSheet);
-$('#sheet-close').addEventListener('click', closeSheet);
-$('#sheet').addEventListener('click', e => { if (e.target === $('#sheet')) closeSheet(); }); // 背景タップ
-$('#sheet').addEventListener('close', () => { sheetOpen = false; mountChatForGame(); updateChatVisible(); });
+function openRulesSheet() { rulesSheetOpen = true; $('#rules-sheet').showModal(); }
+function closeRulesSheet() {
+  if (!rulesSheetOpen) return;
+  rulesSheetOpen = false;
+  $('#rules-sheet').close();
+}
+
+// チャットボタン：スマホはシートを開く／PCは列を開閉する
+$('#chat-btn').addEventListener('click', () => {
+  if (isMobile()) openChatSheet();
+  else setChatOpen(!chatOpen);
+});
+// ルールボタン（スマホのみ表示）：ルール専用シートを開く
+$('#rules-btn').addEventListener('click', openRulesSheet);
+
+$('#chat-sheet-close').addEventListener('click', closeChatSheet);
+$('#chat-sheet').addEventListener('click', e => { if (e.target === $('#chat-sheet')) closeChatSheet(); });
+$('#chat-sheet').addEventListener('close', () => { chatSheetOpen = false; mountChat(); updateChatVisible(); });
+$('#rules-sheet-close').addEventListener('click', closeRulesSheet);
+$('#rules-sheet').addEventListener('click', e => { if (e.target === $('#rules-sheet')) closeRulesSheet(); });
+$('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 
 document.addEventListener('visibilitychange', updateChatVisible);
-mqMobile.addEventListener('change', () => { if (currentScreen === 'game') { mountChatForGame(); updateChatVisible(); } });
+mqMobile.addEventListener('change', () => {
+  if (!isMobile()) { closeChatSheet(); closeRulesSheet(); } // PC幅に戻ったらシートは閉じる
+  if (currentScreen === 'game' || currentScreen === 'lobby') { mountChat(); updateChatVisible(); }
+});
 
 // ---------- ミュート切替ボタン ----------
 const SVG_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
@@ -386,8 +445,9 @@ function renderLobby(r) {
   // チャットをロビー欄に置く（ロビーは常に「全員」チャンネル・常に見えている）
   chat.setSelf(r.you);
   chat.setComposeChannel('all');
-  $('#lobby-chat-slot').appendChild(chat.el);
-  chat.setVisible(true);
+  applyChatLayout();
+  mountChat();
+  updateChatVisible();
 
   const players = r.members.filter(m => m.role === 'player');
   const spectators = r.members.filter(m => m.role === 'spectator');
@@ -519,7 +579,8 @@ for (const b of document.querySelectorAll('.leave-btn')) {
     if (room && room.phase === 'playing' && !confirm('ゲーム中です。本当に退出しますか？')) return;
     await call('room:leave');
     clearSession();
-    closeSheet();
+    closeChatSheet();
+    closeRulesSheet();
     room = null;
     lastLobby = null;
     stopLobbyCountdown();
@@ -567,20 +628,20 @@ async function renderGame(r) {
 
   applyTurnFx(!!r.yourTurn); // 手番の演出（バナー・金枠・タブタイトル）
 
-  // チャットをゲームの右列（スマホはシート）に置く
+  // チャットをゲームのチャット列（スマホはシート）に置く
   chat.setSelf(r.you);
   chat.setComposeChannel(chatComposeChannel(r));
-  mountChatForGame();
+  applyChatLayout();
+  mountChat();
   updateChatVisible();
 
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
 
-  // ルール（チャット／ルールのタブに表示。右列とボトムシートの両方へ）
+  // ルール（スマホは専用シート。PCは .g-side の折りたたみ欄 ＝ 手順2で追加）
+  currentRulesHtml = mod.rules || '<p class="muted">このゲームのルール説明はありません</p>';
   if (sideRulesGame !== r.gameId) {
-    const html = mod.rules ? `<h3>ルール</h3>${mod.rules}` : '<p class="muted">このゲームのルール説明はありません</p>';
-    $('#side-rules').innerHTML = html;
-    $('#sheet-rules').innerHTML = html;
+    $('#rules-sheet-body').innerHTML = currentRulesHtml;
     sideRulesGame = r.gameId;
   }
 

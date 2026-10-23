@@ -1,8 +1,10 @@
 // =============================================================
 //  ルームチャットの部品（ロビー・ゲーム共通で1つだけ作る）
-//  - メッセージ一覧・クイックリアクション・入力欄をまとめた1要素を返す
+//  - 見出し（チャット・位置切替⇄・閉じる×）／メッセージ一覧／クイック
+//    リアクション／入力欄をまとめた1要素を返す（チャット専用。ルールは別）
 //  - app.js が socket からの chat:message / chat:history を流し込む
-//  - 置き場所（ロビー欄／ゲームの右列タブ／ボトムシート）は app.js が el を付け替える
+//  - 置き場所（ロビー欄／PCのチャット列／スマホのシート）は app.js が el を
+//    付け替える。1つの部品を使い回すので履歴・未読を二重に持たない
 //  安全：ユーザーの入力は必ず textContent で入れる（HTMLとして解釈しない）
 // =============================================================
 import { REACTIONS, REACTION_ORDER } from '/lib/reactions.js';
@@ -14,11 +16,20 @@ export function createChat({ socket, sound, toast }) {
   let stick = true;             // 一番下に貼り付いているか
   let unread = 0;
   let onUnread = () => {};
+  let onSwapSide = () => {};     // ⇄ ボタン（左右の入れ替え）
+  let onClose = () => {};        // × ボタン（PCでチャット列を閉じる）
 
   // ---- DOM 組み立て ----
   const el = document.createElement('div');
   el.className = 'chat';
   el.innerHTML = `
+    <div class="chat-head">
+      <h3 class="chat-head-title">チャット</h3>
+      <div class="chat-head-btns">
+        <button type="button" class="chat-swap" aria-label="チャットを左に移動">⇄</button>
+        <button type="button" class="chat-close" aria-label="チャットを閉じる">×</button>
+      </div>
+    </div>
     <div class="chat-log" role="log" aria-live="polite" aria-label="チャット"></div>
     <button type="button" class="chat-new" hidden>新着メッセージ ↓</button>
     <div class="chat-reactions" role="group" aria-label="クイックリアクション">
@@ -35,6 +46,11 @@ export function createChat({ socket, sound, toast }) {
   const newBtn = el.querySelector('.chat-new');
   const form = el.querySelector('.chat-form');
   const input = el.querySelector('.chat-input');
+  const swapBtn = el.querySelector('.chat-swap');
+  const closeBtn = el.querySelector('.chat-close');
+
+  swapBtn.onclick = () => onSwapSide();
+  closeBtn.onclick = () => onClose();
 
   // リアクションチップの文言（定型文）を入れる
   for (const chip of el.querySelectorAll('.chat-chip')) {
@@ -141,6 +157,11 @@ export function createChat({ socket, sound, toast }) {
   });
   form.addEventListener('submit', e => { e.preventDefault(); send(); });
 
+  // 位置（左右）に合わせて ⇄ ボタンの説明を更新する
+  function setSide(side) {
+    swapBtn.setAttribute('aria-label', side === 'left' ? 'チャットを右に移動' : 'チャットを左に移動');
+  }
+
   return {
     el,
     setSelf(id) { self = id; },
@@ -149,6 +170,9 @@ export function createChat({ socket, sound, toast }) {
     setVisible,
     setComposeChannel,
     setOnUnread(cb) { onUnread = cb; },
+    setOnSwapSide(cb) { onSwapSide = cb; },
+    setOnClose(cb) { onClose = cb; },
+    setSide,
     get unread() { return unread; },
   };
 }

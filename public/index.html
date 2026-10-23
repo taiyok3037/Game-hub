@@ -71,23 +71,21 @@
         <span id="game-you-tag" class="you-tag" hidden></span>
       </div>
       <div class="game-bar-actions">
-        <button id="chat-btn" class="btn ghost small chat-btn">チャット<span id="chat-badge" class="chat-badge" hidden>0</span></button>
+        <button id="rules-btn" class="btn ghost small bar-btn" aria-label="ルール">
+          <span class="bar-btn-icon" aria-hidden="true">📖</span><span class="bar-btn-text">ルール</span>
+        </button>
+        <button id="chat-btn" class="btn ghost small bar-btn chat-btn" aria-controls="chat-col" aria-expanded="true" aria-label="チャット">
+          <span class="bar-btn-icon" aria-hidden="true">💬</span><span class="bar-btn-text">チャット</span><span id="chat-badge" class="chat-badge" hidden>0</span>
+        </button>
         <button id="mute-btn" class="btn ghost small icon-btn" aria-label="効果音オン" aria-pressed="true"></button>
         <button class="btn ghost small leave-btn">退店</button>
       </div>
     </header>
     <div id="game-offline" class="offline-list"></div>
     <div id="game-spectate-note" class="spectate-note"></div>
-    <div class="game-layout">
+    <div id="game-grid" class="game-grid">
       <div id="game-root" class="game-root"></div>
-      <aside id="game-side" class="game-side paper">
-        <div class="side-tabs" role="tablist">
-          <button id="tab-chat" class="side-tab on" role="tab" aria-selected="true">チャット<span id="tab-chat-badge" class="chat-badge" hidden>0</span></button>
-          <button id="tab-rules" class="side-tab" role="tab" aria-selected="false">ルール</button>
-        </div>
-        <div id="side-chat" class="side-panel"></div>
-        <div id="side-rules" class="side-panel" hidden></div>
-      </aside>
+      <aside id="chat-col" class="chat-col paper"></aside>
     </div>
     <div id="game-end" class="end-bar" hidden>
       <button id="back-lobby" class="btn primary">ロビーに戻ってもう一度</button>
@@ -96,17 +94,21 @@
     <div id="turn-banner" class="turn-banner" hidden>あなたの番です</div>
   </section>
 
-  <!-- チャット／ルール（スマホ用ボトムシート） -->
-  <dialog id="sheet" class="rules-sheet paper">
+  <!-- チャット（スマホ用ボトムシート） -->
+  <dialog id="chat-sheet" class="sheet paper">
     <div class="sheet-head">
-      <div class="side-tabs" role="tablist">
-        <button id="sheet-tab-chat" class="side-tab on" role="tab" aria-selected="true">チャット</button>
-        <button id="sheet-tab-rules" class="side-tab" role="tab" aria-selected="false">ルール</button>
-      </div>
-      <button id="sheet-close" class="btn ghost small">閉じる</button>
+      <button id="chat-sheet-close" class="btn ghost small">閉じる</button>
     </div>
-    <div id="sheet-chat" class="sheet-panel"></div>
-    <div id="sheet-rules" class="sheet-panel" hidden></div>
+    <div id="chat-sheet-slot" class="sheet-body"></div>
+  </dialog>
+
+  <!-- ルール（スマホ用ボトムシート） -->
+  <dialog id="rules-sheet" class="sheet paper">
+    <div class="sheet-head">
+      <h3 class="sheet-title">ルール</h3>
+      <button id="rules-sheet-close" class="btn ghost small">閉じる</button>
+    </div>
+    <div id="rules-sheet-body" class="sheet-body"></div>
   </dialog>
 
   <div id="toast" class="toast" hidden></div>
