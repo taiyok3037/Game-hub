@@ -11,6 +11,7 @@ const fs = require('fs');
 const crypto = require('crypto');
 const { Server } = require('socket.io');
 const { viewFor, roleOf } = require('./lib/viewFor');
+const { REACTIONS } = require('./lib/reactions');
 
 const app = express();
 const server = http.createServer(app);
@@ -53,6 +54,15 @@ app.get('/api/games', (req, res) => {
   })));
 });
 
+// クイックリアクション一覧を ESM としてブラウザへ配信（public/lib には置かない）
+app.get('/lib/reactions.js', (req, res) => {
+  const { REACTIONS: R, REACTION_ORDER } = require('./lib/reactions');
+  res.type('application/javascript').send(
+    `export const REACTIONS = ${JSON.stringify(R)};\n` +
+    `export const REACTION_ORDER = ${JSON.stringify(REACTION_ORDER)};\n`
+  );
+});
+
 // 各ゲームの画面側コード（games/<id>/client.js と client.css だけを公開）
 app.get('/games/:id/:file', (req, res) => {
   const { id, file } = req.params;
@@ -91,6 +101,7 @@ function newMember(name, role, autoSpectator = false) {
     role,                 // 'player' | 'spectator'（ロビーでの選択）
     ready: false,         // ロビーでの準備OK
     autoSpectator,
+    chatTimes: [],        // 連投制限用（直近の送信時刻）
   };
 }
 
@@ -122,6 +133,61 @@ function pickHost(room) {
          || room.members.find(x => x.connected)
          || room.members[0];
   return m ? m.id : null;
+}
+
+// ---------- チャット（仕様04） ----------
+let chatSeq = 0; // メッセージ id の連番
+
+// チャンネルの決め方：手札が見える設定のゲーム中は、観戦者・脱落者の発言は観戦席だけ
+function channelFor(room, member) {
+  const role = roleOf(games[room.gameId], room, member.id);
+  if (room.phase === 'playing' && room.settings.spectatorSeesAll && role !== 'player') return 'spectators';
+  return 'all';
+}
+
+// そのメンバーがそのメッセージを読めるか
+function canRead(room, member, entry) {
+  if (entry.channel === 'all') return true;
+  const role = roleOf(games[room.gameId], room, member.id);
+  return role === 'spectator' || role === 'out'; // 観戦席は観戦者・脱落者だけ
+}
+
+// 連投制限：3秒で5件まで。超えたら true（制限中）
+function chatRateLimited(member) {
+  const now = Date.now();
+  member.chatTimes = (member.chatTimes || []).filter(t => now - t < 3000);
+  if (member.chatTimes.length >= 5) return true;
+  member.chatTimes.push(now);
+  return false;
+}
+
+// 1件保存して、読める人に配信する
+function pushChat(room, { kind, channel, fromId, fromName, text }) {
+  const entry = { id: ++chatSeq, at: Date.now(), kind, channel, fromId, fromName, text };
+  room.chat.push(entry);
+  if (room.chat.length > 100) room.chat.splice(0, room.chat.length - 100); // 最新100件
+  for (const m of room.members) {
+    if (m.socketId && canRead(room, m, entry)) io.to(m.socketId).emit('chat:message', entry);
+  }
+  return entry;
+}
+
+// システムメッセージ（灰色・全員向け）
+function pushSystem(room, text) {
+  if (!room.chat) return;
+  pushChat(room, { kind: 'system', channel: 'all', fromId: null, fromName: null, text });
+}
+
+// 入室・再接続のときに、その人が読める履歴だけ送る
+function sendHistory(socket, room, member) {
+  socket.emit('chat:history', room.chat.filter(e => canRead(room, member, e)));
+}
+
+// ゲーム終了の確定（二重に「ゲーム終了」を流さない）
+function finishGame(room) {
+  if (room.phase === 'finished') return;
+  room.phase = 'finished';
+  pushSystem(room, 'ゲーム終了');
 }
 
 // ---------- カウントダウン・自動開始（3-3 / 3-4） ----------
@@ -165,7 +231,10 @@ function startGame(room) {
   }
   room.gamePlayerIds = players.map(m => m.id);
   room.state = game.setup(players.map(m => ({ id: m.id, name: m.name })));
-  room.phase = game.isOver(room.state) ? 'finished' : 'playing';
+  room.phase = 'playing';
+  room.gameNo = (room.gameNo || 0) + 1;
+  pushSystem(room, `第${room.gameNo}戦 開始`);
+  if (game.isOver(room.state)) finishGame(room);
   broadcast(room);
 }
 
@@ -248,7 +317,7 @@ function notifyConnectionChange(room) {
     console.error(e);
   }
   if (changed) {
-    if (game.isOver(room.state)) room.phase = 'finished';
+    if (game.isOver(room.state)) finishGame(room);
     broadcast(room);
   }
 }
@@ -298,8 +367,13 @@ function removeMember(room, memberId) {
     rooms.delete(room.code);
     return;
   }
-  if (room.hostId === memberId) room.hostId = pickHost(room);
-  if (room.phase === 'playing' && games[room.gameId].isOver(room.state)) room.phase = 'finished';
+  pushSystem(room, `${member.name} さんが退出しました`);
+  if (room.hostId === memberId) {
+    room.hostId = pickHost(room);
+    const host = room.members.find(m => m.id === room.hostId);
+    if (host) pushSystem(room, `${host.name} さんがホストになりました`);
+  }
+  if (room.phase === 'playing' && games[room.gameId].isOver(room.state)) finishGame(room);
   checkLobby(room);
   broadcast(room);
 }
@@ -321,11 +395,15 @@ io.on('connection', socket => {
       gamePlayerIds: [],
       settings: { spectatorSeesAll: false },
       countdown: null,
+      chat: [],
+      gameNo: 0,
       lastActive: Date.now(),
     };
     rooms.set(room.code, room);
     attach(socket, room, member);
     cb({ ok: true, code: room.code, token: member.token });
+    sendHistory(socket, room, member);
+    pushSystem(room, `${member.name} さんが入室しました`);
     checkLobby(room);
     broadcast(room);
   });
@@ -349,6 +427,8 @@ io.on('connection', socket => {
     attach(socket, room, member);
     room.notice = `${member.name} さんが${role === 'spectator' ? '観戦で' : ''}参加しました`;
     cb({ ok: true, code: room.code, token: member.token });
+    sendHistory(socket, room, member); // 入室より前の履歴（入室メッセージは下で chat:message で届く）
+    pushSystem(room, role === 'spectator' ? `${member.name} さんが観戦に来ました` : `${member.name} さんが入室しました`);
     checkLobby(room);
     broadcast(room);
   });
@@ -363,6 +443,7 @@ io.on('connection', socket => {
     }
     attach(socket, room, member);
     cb({ ok: true, code: room.code, token: member.token });
+    sendHistory(socket, room, member); // 再接続した人には読める履歴を送り直す（切断・再接続はシステム通知しない）
     checkLobby(room);
     broadcast(room);
     notifyConnectionChange(room); // 再接続をゲームに知らせる
@@ -446,7 +527,7 @@ io.on('connection', socket => {
       return cb({ error: 'エラーが起きました' });
     }
     if (result && result.error) return cb({ error: result.error });
-    if (game.isOver(room.state)) room.phase = 'finished';
+    if (game.isOver(room.state)) finishGame(room);
     cb({ ok: true });
     broadcast(room);
   });
@@ -459,6 +540,31 @@ io.on('connection', socket => {
     returnToLobby(room);
     cb({ ok: true });
     broadcast(room);
+  });
+
+  // チャット：文字メッセージ
+  socket.on('chat:send', ({ text } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    const t = String(text == null ? '' : text).replace(/[\r\n]+/g, ' ').trim();
+    if (!t) return cb({ error: '空のメッセージは送れません' });
+    if (t.length > 140) return cb({ error: '140文字までにしてください' });
+    if (chatRateLimited(member)) return cb({ error: '少し待ってから送ってください' });
+    const channel = channelFor(room, member);
+    pushChat(room, { kind: 'user', channel, fromId: member.id, fromName: member.name, text: t });
+    cb({ ok: true });
+  });
+
+  // チャット：クイックリアクション
+  socket.on('chat:react', ({ key } = {}, cb = () => {}) => {
+    const { room, member } = findBySocket(socket);
+    if (!room || !member) return cb({ error: 'ルームにいません' });
+    const text = REACTIONS[key];
+    if (!text) return cb({ error: '不明なリアクションです' });
+    if (chatRateLimited(member)) return cb({ error: '少し待ってから送ってください' });
+    const channel = channelFor(room, member);
+    pushChat(room, { kind: 'reaction', channel, fromId: member.id, fromName: member.name, text });
+    cb({ ok: true });
   });
 
   socket.on('disconnect', () => {
@@ -505,4 +611,4 @@ setInterval(() => {
 server.listen(PORT, () => console.log(`Game Hub 起動: http://localhost:${PORT}`));
 
 // テスト用に内部を公開する（通常の起動には影響しない）
-module.exports = { rooms, games, viewFor, roleOf };
+module.exports = { rooms, games, viewFor, roleOf, pushChat, pushSystem };

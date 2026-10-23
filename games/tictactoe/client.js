@@ -47,7 +47,7 @@ export function render(root, v, ctx) {
         <div class="felt">
           <div class="seats">
             ${v.players.map(p => `
-              <div class="seat ${p.id === v.currentId && !ctx.finished ? 'turn' : ''}">
+              <div class="seat ${p.id === v.currentId && !ctx.finished ? 'turn' : ''}" data-member-id="${p.id}">
                 <span class="seat-chip">${p.mark} ${esc(p.name)}</span>
                 <span class="seat-info">${p.id === ctx.me ? 'あなた' : ''}</span>
               </div>`).join('')}

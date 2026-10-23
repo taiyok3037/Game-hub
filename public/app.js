@@ -11,6 +11,8 @@ const NAME_KEY = 'gamehub-name';
 
 let games = [];
 let room = null;
+let currentScreen = 'home';
+let sideRulesGame = null; // ルールタブに今入っているゲームid
 const modules = {}; // 読み込んだゲーム画面モジュールのキャッシュ
 
 // 前回描画した view（ctx.prev 用）。room.code か gameId が変わる・ロビーに戻る・再接続で null に戻す
@@ -62,6 +64,123 @@ const call = (event, data = {}) => new Promise(res => socket.emit(event, data, r
 // 効果音。ctx.sound(name) から呼ぶ
 const sound = name => soundPlay(name);
 
+// ---------- チャット（ロビー・ゲーム共通で1つ） ----------
+// チャットは遅延読み込みする。万一読み込みに失敗しても、ホーム・ロビー・ゲームが
+// 止まらないよう、最初は何もしないダミーを入れておき、読み込めたら差し替える。
+function stubChat() {
+  const el = document.createElement('div');
+  return {
+    el,
+    setSelf() {}, setHistory() {}, addMessage() {}, setVisible() {},
+    setComposeChannel() {}, setOnUnread() {}, get unread() { return 0; },
+  };
+}
+let chat = stubChat();
+socket.on('chat:history', list => chat.setHistory(list));
+socket.on('chat:message', m => {
+  chat.addMessage(m);
+  if (m.kind === 'reaction') showReaction(m);
+});
+
+import('/chat.js').then(mod => {
+  chat = mod.createChat({ socket, sound, toast });
+  chat.setOnUnread(n => {
+    for (const id of ['#chat-badge', '#tab-chat-badge']) {
+      const b = $(id);
+      if (!b) continue;
+      b.textContent = n > 99 ? '99+' : String(n);
+      b.hidden = n === 0;
+    }
+  });
+  // すでに部屋にいるなら、今の画面を描き直してチャットを差し込む
+  if (room) { if (room.phase === 'lobby') renderLobby(room); else renderGame(room); }
+}).catch(e => console.error('チャットの読み込みに失敗しました（チャット以外は動作します）', e));
+
+// いまチャットを送ると届くチャンネル（観戦席かどうか）を入力欄に反映する
+function chatComposeChannel(r) {
+  return (r.phase === 'playing' && r.settings && r.settings.spectatorSeesAll && r.yourRole !== 'player')
+    ? 'spectators' : 'all';
+}
+// リアクションを、送った人の席の上に吹き出しで2秒出す。
+// 席（[data-member-id]）が見つからない（ロビー・席を描かないゲーム）ときは上部トースト。
+function showReaction(m) {
+  const seat = (currentScreen === 'game' && m.fromId)
+    ? $(`#game-root [data-member-id="${m.fromId}"]`)
+    : null;
+  if (!seat) {
+    toast(`${m.fromName || '観戦者'}：${m.text}`);
+    return;
+  }
+  const bubble = document.createElement('div');
+  bubble.className = 'reaction-bubble';
+  bubble.textContent = m.text;
+  document.body.appendChild(bubble);
+  const rect = seat.getBoundingClientRect();
+  bubble.style.left = `${rect.left + rect.width / 2 - bubble.offsetWidth / 2}px`;
+  bubble.style.top = `${rect.top - bubble.offsetHeight - 6}px`;
+  setTimeout(() => bubble.remove(), 2000);
+}
+
+// ---------- チャット／ルールのタブとボトムシート ----------
+const mqMobile = window.matchMedia('(max-width: 767px)');
+const isMobile = () => mqMobile.matches;
+let activeTab = 'chat';   // 'chat' | 'rules'（右列・シート共通）
+let sheetOpen = false;
+
+// ゲーム画面でチャットをどこに置くか（スマホでシートが開いていればシートへ）
+function mountChatForGame() {
+  const target = (isMobile() && sheetOpen) ? $('#sheet-chat') : $('#side-chat');
+  if (chat.el.parentElement !== target) target.appendChild(chat.el);
+}
+
+// チャットが「見えている」か（未読カウント用）
+function updateChatVisible() {
+  let vis;
+  if (currentScreen === 'lobby') vis = true;
+  else if (currentScreen === 'game') vis = isMobile() ? (sheetOpen && activeTab === 'chat') : (activeTab === 'chat');
+  else vis = false;
+  chat.setVisible(vis && !document.hidden);
+}
+
+function setTab(tab) {
+  activeTab = tab;
+  for (const [btn, panel, t] of [
+    ['#tab-chat', '#side-chat', 'chat'], ['#tab-rules', '#side-rules', 'rules'],
+    ['#sheet-tab-chat', '#sheet-chat', 'chat'], ['#sheet-tab-rules', '#sheet-rules', 'rules'],
+  ]) {
+    const b = $(btn), p = $(panel);
+    if (b) { b.classList.toggle('on', t === tab); b.setAttribute('aria-selected', String(t === tab)); }
+    if (p) p.hidden = t !== tab;
+  }
+  mountChatForGame();
+  updateChatVisible();
+}
+$('#tab-chat').onclick = () => setTab('chat');
+$('#tab-rules').onclick = () => setTab('rules');
+$('#sheet-tab-chat').onclick = () => setTab('chat');
+$('#sheet-tab-rules').onclick = () => setTab('rules');
+
+function openSheet() {
+  sheetOpen = true;
+  mountChatForGame();
+  $('#sheet').showModal();
+  updateChatVisible();
+}
+function closeSheet() {
+  if (!sheetOpen) return;
+  sheetOpen = false;
+  $('#sheet').close();
+  mountChatForGame(); // チャットを右列（非表示列）に戻す
+  updateChatVisible();
+}
+$('#chat-btn').addEventListener('click', openSheet);
+$('#sheet-close').addEventListener('click', closeSheet);
+$('#sheet').addEventListener('click', e => { if (e.target === $('#sheet')) closeSheet(); }); // 背景タップ
+$('#sheet').addEventListener('close', () => { sheetOpen = false; mountChatForGame(); updateChatVisible(); });
+
+document.addEventListener('visibilitychange', updateChatVisible);
+mqMobile.addEventListener('change', () => { if (currentScreen === 'game') { mountChatForGame(); updateChatVisible(); } });
+
 // ---------- ミュート切替ボタン ----------
 const SVG_ON = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path><path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path></svg>';
 const SVG_OFF = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon><line x1="23" y1="9" x2="17" y2="15"></line><line x1="17" y1="9" x2="23" y2="15"></line></svg>';
@@ -80,14 +199,8 @@ $('#mute-btn').addEventListener('click', () => {
 });
 refreshMuteBtn();
 
-// ---------- ルールパネル / ボトムシート ----------
-$('#rules-btn').addEventListener('click', () => $('#rules-dialog').showModal());
-$('#rules-close').addEventListener('click', () => $('#rules-dialog').close());
-$('#rules-dialog').addEventListener('click', e => {
-  if (e.target === $('#rules-dialog')) $('#rules-dialog').close(); // 背景タップで閉じる
-});
-
 function show(name) {
+  currentScreen = name;
   for (const s of document.querySelectorAll('.screen')) s.hidden = s.id !== `screen-${name}`;
 }
 
@@ -181,6 +294,12 @@ function renderLobby(r) {
   const me = r.members.find(m => m.id === r.you);
   $('#lobby-game').textContent = r.gameName;
   $('#lobby-code').textContent = r.code;
+
+  // チャットをロビー欄に置く（ロビーは常に「全員」チャンネル・常に見えている）
+  chat.setSelf(r.you);
+  chat.setComposeChannel('all');
+  $('#lobby-chat-slot').appendChild(chat.el);
+  chat.setVisible(true);
 
   const players = r.members.filter(m => m.role === 'player');
   const spectators = r.members.filter(m => m.role === 'spectator');
@@ -309,6 +428,7 @@ for (const b of document.querySelectorAll('.leave-btn')) {
     if (room && room.phase === 'playing' && !confirm('ゲーム中です。本当に退出しますか？')) return;
     await call('room:leave');
     clearSession();
+    closeSheet();
     room = null;
     lastLobby = null;
     stopLobbyCountdown();
@@ -356,20 +476,22 @@ async function renderGame(r) {
 
   applyTurnFx(!!r.yourTurn); // 手番の演出（バナー・金枠・タブタイトル）
 
+  // チャットをゲームの右列（スマホはシート）に置く
+  chat.setSelf(r.you);
+  chat.setComposeChannel(chatComposeChannel(r));
+  mountChatForGame();
+  updateChatVisible();
+
   const mod = await loadModule(r.gameId);
   if (room !== r) return; // 読み込み中に次の更新が来たら古い描画はしない
 
-  // ルール（ゲームが export const rules で公開していれば表示する）
-  const aside = $('#game-rules');
-  if (aside.dataset.game !== r.gameId) {
-    if (mod.rules) {
-      aside.innerHTML = `<h3>ルール</h3>${mod.rules}`;
-      $('#rules-dialog-body').innerHTML = mod.rules;
-    }
-    aside.dataset.game = r.gameId;
+  // ルール（チャット／ルールのタブに表示。右列とボトムシートの両方へ）
+  if (sideRulesGame !== r.gameId) {
+    const html = mod.rules ? `<h3>ルール</h3>${mod.rules}` : '<p class="muted">このゲームのルール説明はありません</p>';
+    $('#side-rules').innerHTML = html;
+    $('#sheet-rules').innerHTML = html;
+    sideRulesGame = r.gameId;
   }
-  aside.hidden = !mod.rules;
-  $('#rules-btn').hidden = !mod.rules;
 
   // 前回描画した view（同じルーム・同じゲームのときだけ）
   const key = `${r.code}|${r.gameId}`;

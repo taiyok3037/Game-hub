@@ -48,7 +48,7 @@ export function render(root, v, ctx) {
       ? cardHTML(p.card, { cls: isMe && justRevealed ? 'ip-flip' : '' })
       : `<div class="ip-back">${backHTML()}<span class="ip-q">？</span></div>`;
     return `
-      <div class="seat ip-seat ${isCurrent ? 'turn' : ''}">
+      <div class="seat ip-seat ${isCurrent ? 'turn' : ''}" data-member-id="${p.id}">
         <div class="ip-forehead">${forehead}</div>
         <span class="seat-chip">${esc(p.name)}${p.isStarter ? '<span class="ip-first">先</span>' : ''}</span>
         <span class="ip-lives" aria-label="ライフ${p.lives}">${lifeDots(p.lives)}</span>

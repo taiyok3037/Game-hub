@@ -680,7 +680,7 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 @media (min-width: 768px) {
   #screen-game { max-width: 1024px; }
   .game-layout { grid-template-columns: minmax(0, 1fr) 280px; }
-  #rules-btn { display: none; }
+  #chat-btn { display: none; }
 }
 
 /* 1100px 以上：3列。左 g-side(260)・中央 g-main(560)・右ルール(300)。全体 1240px */
@@ -695,3 +695,131 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   .g-side { order: 1; }  /* 左 */
   .g-main { order: 2; }  /* 中央 */
 }
+
+/* =============================================================
+   チャット（仕様04）
+   ============================================================= */
+.chat { display: flex; flex-direction: column; min-height: 0; }
+.chat-slot { padding: 12px 14px; margin-bottom: 16px; }
+
+.chat-log {
+  height: 240px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  background: var(--paper-light);
+  border: 2px solid var(--paper-line);
+  border-radius: 10px;
+}
+@media (min-width: 768px) { .chat-slot .chat-log { height: 280px; } }
+
+.chat-msg { display: flex; flex-direction: column; max-width: 82%; }
+.chat-msg.me { align-self: flex-end; align-items: flex-end; }
+.chat-msg.other { align-self: flex-start; align-items: flex-start; }
+.chat-msg.sys {
+  align-self: center; max-width: 94%;
+  color: var(--ink-soft); font-size: 11px; font-weight: 700; text-align: center;
+}
+.chat-name { font-size: 11px; color: var(--ink-soft); font-weight: 700; margin: 0 6px 2px; }
+.chat-bubble {
+  background: var(--paper); color: var(--ink);
+  border: 2px solid var(--paper-line); border-radius: 12px;
+  padding: 6px 10px; font-size: 14px; font-weight: 500;
+  word-break: break-word; overflow-wrap: anywhere;
+}
+.chat-msg.me .chat-bubble { background: #fff6e4; }
+.chat-bubble.reaction { font-weight: 900; }
+.chat-msg.spec .chat-bubble { background: #eef1f6; border-color: #c7cede; }
+.chat-spec-tag {
+  display: inline-block; margin-left: 6px; vertical-align: middle;
+  font-size: 10px; font-weight: 900; color: #5a6a8a;
+  background: #dde3ef; border-radius: 6px; padding: 0 5px;
+}
+
+.chat-new {
+  align-self: center; margin-top: 4px;
+  font: inherit; font-size: 12px; font-weight: 900;
+  color: #fff; background: var(--red); border: none;
+  border-radius: 999px; padding: 4px 14px; cursor: pointer;
+}
+
+.chat-reactions { display: flex; gap: 6px; overflow-x: auto; padding: 8px 0 6px; }
+.chat-chip {
+  flex: 0 0 auto;
+  font: inherit; font-size: 13px; font-weight: 700;
+  color: var(--ink); background: var(--paper-light);
+  border: 2px solid var(--paper-line); border-radius: 999px;
+  padding: 5px 12px; cursor: pointer; white-space: nowrap;
+}
+.chat-chip:active { transform: translateY(1px); }
+
+.chat-form { display: flex; gap: 8px; align-items: stretch; }
+.chat-form .chat-input { flex: 1; min-width: 0; font-size: 16px; padding: 8px 12px; }
+.chat-send { flex: 0 0 auto; align-self: center; }
+.chat-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.chat-spec-mode .chat-input { border-color: #8aa0c8; background: #eef1f6; }
+
+/* ゲーム画面：チャット／ルールのタブ（右列） */
+.game-side { display: none; }
+@media (min-width: 768px) {
+  .game-side {
+    display: flex; flex-direction: column;
+    position: sticky; top: 16px;
+    max-height: calc(100dvh - 32px);
+    padding: 12px 14px;
+  }
+}
+.side-tabs { display: flex; gap: 6px; }
+.side-tab {
+  position: relative;
+  flex: 0 0 auto; font: inherit; font-weight: 900; font-size: 14px;
+  color: var(--ink-soft); background: var(--paper-light);
+  border: 2px solid var(--paper-line); border-radius: 999px;
+  padding: 5px 14px; cursor: pointer;
+}
+.side-tab.on { color: #fff; background: var(--red); border-color: var(--red-dark); }
+.game-side .side-tabs { margin-bottom: 10px; }
+.game-side .side-panel:not([hidden]) { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.game-side #side-chat:not([hidden]) { display: flex; overflow: hidden; }
+.game-side .chat { flex: 1; min-height: 0; }
+.game-side .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
+
+/* 未読バッジ（ゲームバーのチャットボタン・右列のチャットタブ） */
+.chat-btn { position: relative; }
+.chat-badge {
+  display: inline-block; margin-left: 6px; min-width: 18px; padding: 0 5px;
+  font-size: 11px; font-weight: 900; line-height: 18px; text-align: center;
+  color: #fff; background: var(--red); border-radius: 999px;
+}
+
+/* ボトムシート（スマホ）：チャット／ルールのタブ */
+#sheet[open] { display: flex; flex-direction: column; }
+.sheet-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 10px; }
+#sheet .sheet-panel:not([hidden]) { min-height: 0; }
+#sheet #sheet-chat:not([hidden]) { display: flex; flex-direction: column; }
+#sheet .chat { flex: 1; min-height: 0; }
+#sheet .chat-log { height: 52dvh; }
+#sheet #sheet-rules { overflow: auto; max-height: 62dvh; }
+#sheet #sheet-rules h3 { margin: 0 0 8px; font-family: var(--font-title); font-size: 18px; }
+
+/* リアクションの吹き出し（席の上に2秒） */
+.reaction-bubble {
+  position: fixed; z-index: 60;
+  background: var(--gold); color: #3a2414;
+  font-weight: 900; font-size: 14px; white-space: nowrap;
+  padding: 4px 10px; border-radius: 12px;
+  box-shadow: 0 3px 8px rgba(0,0,0,.3);
+  pointer-events: none;
+  animation: reaction-pop .18s ease-out;
+}
+.reaction-bubble::after {
+  content: ''; position: absolute; left: 50%; bottom: -5px; transform: translateX(-50%);
+  border: 6px solid transparent; border-top-color: var(--gold); border-bottom: 0;
+}
+@keyframes reaction-pop {
+  from { transform: translateY(6px) scale(.8); opacity: 0; }
+  to   { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) { .reaction-bubble { animation: none; } }
