@@ -11,8 +11,18 @@ module.exports = {
   minPlayers: 2,
   maxPlayers: 4,
 
+  // （任意）ロビーでホストが選べるゲーム設定。room.options に現在値が入る
+  //   type: 'int'（min/max）・'select'（choices）・'bool'
+  //   choices は関数でもよい（データから作る場合）。showIf で出し分けできる
+  // options: [
+  //   { key: 'target', label: '目標点', type: 'int', min: 3, max: 10, default: 5 },
+  //   { key: 'mode', label: 'モード', type: 'select', default: 'a',
+  //     choices: [{ value: 'a', label: 'かんたん' }, { value: 'b', label: 'むずかしい' }] },
+  // ],
+
   // ① 開始時の状態を作る。players = [{ id, name }, ...]
-  setup(players) {
+  //    options は上で宣言した設定の現在値（宣言していないゲームは無視してよい）
+  setup(players, options) {
     return {
       players,
       turn: 0,
@@ -63,4 +73,18 @@ module.exports = {
 
   // ⑦（任意）ゲーム中に誰かが抜けたとき。書かなければロビーに戻る
   // onLeave(state, playerId) {},
+
+  // ⑧（任意）時間切れを扱う場合。基盤が broadcast のたびに deadline を見て
+  //    ルームごとにタイマーを1つ張り直し、締め切りを過ぎたら onTimeout を呼ぶ。
+  //    deadline は締め切りの時刻（ms・サーバー時計）。なければ null を返す
+  //    クライアントは timerHTML(deadline, ctx) で残り時間を出せる（/lib/timer.js）
+  // deadline(state) {
+  //   return state.deadlineAt || null;
+  // },
+  // onTimeout(state, room) {
+  //   // 締め切りを過ぎたときの処理（未入力の人を自動で進める等）。room = { hostId, connectedIds }
+  // },
+
+  // （任意）action は { silent: true } を返すと、その操作を全員に配信しない
+  //   （本人だけで完結する下書きの保存などに使う）
 };

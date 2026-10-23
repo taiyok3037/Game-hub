@@ -4,8 +4,8 @@
 
 ## 構成
 - `server.js` … 共通基盤。ルーム（4文字コード）・ロビー・再接続・退出処理・`games/` の自動読み込み。**ゲーム固有の処理は書かない**
-- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数、`chat.js` にルームチャット。クイックリアクションの定型文は `lib/reactions.js`（サーバー共通・`/lib/reactions.js` で配信）
-- `games/<id>/server.js` … ルール。`setup / action / view / isOver`（任意で `onLeave / turnOf / onConnectionChange / isOut / spectatorView`）を持つ
+- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数、`lib/timer.js` に締め切りタイマー表示（`timerHTML`）、`chat.js` にルームチャット。クイックリアクションの定型文は `lib/reactions.js`（サーバー共通・`/lib/reactions.js` で配信）
+- `games/<id>/server.js` … ルール。`setup(players, options) / action / view / isOver`（任意で `onLeave / turnOf / onConnectionChange / isOut / spectatorView / options / deadline / onTimeout`）を持つ
 - `games/<id>/client.js` … `export function render(root, view, ctx)`。毎回まるごと描き直す
 - `games/<id>/client.css` … そのゲームだけの見た目
 - `templates/new-game/` … 新規ゲームのひな形
@@ -22,6 +22,11 @@
 - 紙色の面（パネルや結果パネルなど）には `.paper` を付ける（上に置くボタンの色が自動で紙向けに切り替わる。`.btn.ghost` は木目・フェルト用の明るい色なので、紙の上では `.paper` がないと見えにくい）
 - 画面はスマホ幅（390px）で崩れないこと
 - UIの文言は日本語
+
+## 基盤の機能（任意で使う）
+- **ゲーム設定（options）**：`options: [{ key, label, type, min/max or choices, default, showIf }]` を宣言すると、ロビーでホストが変更できる（`type` は `int` / `select` / `bool`、`choices` は関数でもよい、`showIf: { key, equals }` で出し分け）。現在値は `setup(players, options)` に渡る。サーバーが型と範囲を検証し、変更すると全員の準備OKが外れる。設定はロビーに戻っても維持される
+- **タイマー（deadline / onTimeout）**：`deadline(state)` が締め切りの時刻（ms・サーバー時計）を返すと、基盤が締め切りで `onTimeout(state, room)` を呼ぶ。画面は `/lib/timer.js` の `timerHTML(deadline, ctx)` で残り時間を出せる（`ctx.clockOffset` で時計のずれを補正・残り5秒から `tick` 音）
+- **broadcast の抑止**：`action` が `{ silent: true }` を返すと、その操作を全員に配信しない（本人だけで完結する下書き保存などに使う）
 
 ## 確認方法
 - 開発中は `npm run dev` で起動する（保存で自動再起動。サーバーのコードやルートを変えたら再起動が要るため）
