@@ -696,22 +696,40 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 @media (max-width: 420px) { .bar-btn-text { display: none; } }
 
 /* ゲーム画面の外枠：卓（#game-root）＋ チャット列（#chat-col）。
-   幅ごとの列組み（開閉・左右）は「ゲーム画面のグリッド」節（手順3）で組む */
+   既定（767px以下）は1列。チャットはボトムシート、ルールは専用シート。 */
 .game-grid { display: grid; gap: 16px; align-items: start; }
 
-/* 本体内の g-layout（側＝得点表など ＋ 卓）。幅ごとの詳細は手順3で上書き */
+/* 768〜1099px：チャットを開くと 卓｜チャット300 の2列（左なら入れ替え）。
+   サイド（.g-side）は卓の下（g-layout は1列のまま）。閉じると卓だけの1列。 */
 @media (min-width: 768px) {
-  #screen-game { max-width: 1024px; }
+  #screen-game { max-width: 1040px; }
+  #screen-game.chat-closed { max-width: 760px; }
+  #screen-game.chat-open .game-grid { grid-template-columns: minmax(0, 1fr) 300px; }
+  #screen-game.chat-open.chat-left .game-grid { grid-template-columns: 300px minmax(0, 1fr); }
+  #screen-game.chat-open.chat-left #chat-col { order: -1; }
 }
+
+/* 1100px 以上：開くと サイド260｜卓(最大640)｜チャット320 の3列。
+   左なら チャット｜卓｜サイド に入れ替え。閉じると サイド260｜卓(最大720) の2列。 */
 @media (min-width: 1100px) {
-  #screen-game { max-width: 1240px; }
+  #screen-game.chat-open { max-width: 1440px; }
+  #screen-game.chat-closed { max-width: 1012px; }
+  #screen-game.chat-open .game-grid { grid-template-columns: minmax(0, 1fr) 320px; }
+  #screen-game.chat-open.chat-left .game-grid { grid-template-columns: 320px minmax(0, 1fr); }
+  #screen-game.chat-open.chat-left #chat-col { order: -1; }
+
   .g-layout {
-    grid-template-columns: 260px minmax(0, 560px);
+    grid-template-columns: 260px minmax(0, 640px);
     justify-content: center;
     align-items: start;
   }
-  .g-side { order: 1; }  /* 左 */
-  .g-main { order: 2; }  /* 中央 */
+  .g-side { order: 1; }  /* 既定（チャット右）：サイドは左 */
+  .g-main { order: 2; }  /* 卓は中央 */
+  /* チャットが左のときは 卓｜サイド の順（サイドを右へ） */
+  #screen-game.chat-left .g-main { order: 1; }
+  #screen-game.chat-left .g-side { order: 2; }
+  /* チャットを閉じたら卓を広く（最大720） */
+  #screen-game.chat-closed .g-layout { grid-template-columns: 260px minmax(0, 720px); }
 }
 
 /* =============================================================
@@ -806,6 +824,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
   .chat-col .chat { flex: 1; min-height: 0; }
   .chat-col .chat-log { flex: 1 1 auto; height: auto; min-height: 140px; }
 }
+/* 閉じているときはチャット列を消して卓を広げる（PC） */
+#screen-game.chat-closed #chat-col { display: none; }
 
 /* 未読バッジ（ゲームバーのチャットボタン・閉じているときだけ） */
 .chat-btn { position: relative; }
