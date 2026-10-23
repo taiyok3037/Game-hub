@@ -46,6 +46,29 @@ async function checkInput(page, label, inputSel) {
   }
 }
 
+// ルール欄を閉じたとき、本文が帯の下に覗いていないか確認する
+const rulesChecks = [];
+async function checkRulesClosed(page, label) {
+  // 開いていれば閉じる
+  if (await page.getAttribute('#rules-toggle', 'aria-expanded') === 'true') await page.click('#rules-toggle');
+  await sleep(350); // 畳みアニメ＋hidden 付与を待つ
+  const info = await page.evaluate(() => {
+    const box = document.querySelector('#rules-box');
+    const body = document.querySelector('#rules-body');
+    const barBottom = box.getBoundingClientRect().bottom;
+    const bodyHidden = body.hidden || body.offsetHeight === 0;
+    let textBelow = false; // 帯の下端より下に本文テキストが描画されていないか
+    for (const el of body.querySelectorAll('li, p')) {
+      const r = el.getBoundingClientRect();
+      if (r.height > 0 && r.bottom > barBottom + 0.5) textBelow = true;
+    }
+    return { bodyHidden, textBelow, barBottom: Math.round(barBottom), bodyH: body.offsetHeight };
+  });
+  const ok = info.bodyHidden && !info.textBelow;
+  rulesChecks.push({ label, ok, ...info });
+  console.log(`  ${ok ? '✓' : '✗'} ${label}: 本文非表示=${info.bodyHidden} 帯下に本文=${info.textBelow} (body offsetHeight=${info.bodyH})`);
+}
+
 // --- 2人でダイス領土戦を開始する ---
 const host = await browser.newContext();
 const hp = await host.newPage();
@@ -83,6 +106,24 @@ await sleep(600);
 console.log('ゲーム画面のチャット入力欄チェック:');
 await checkInput(hp, 'ゲーム', '#chat-col .chat-input');
 
+// ルール欄を閉じたときの確認（1920×1080）＋スクショ。390px は PC のルール帯が
+// 出ない（スマホはシート）ので、閉じた状態のゲーム画面をそのまま撮る。
+console.log('ルール欄を閉じたときの確認:');
+await hp.setViewportSize({ width: 1920, height: 1080 });
+await sleep(300);
+await checkRulesClosed(hp, '1920x1080');
+await hp.screenshot({ path: path.join(OUT, 'rules-closed-1920.png') });
+console.log('  📸 rules-closed-1920');
+await hp.setViewportSize({ width: 390, height: 780 });
+await sleep(300);
+await hp.screenshot({ path: path.join(OUT, 'rules-closed-390.png') });
+console.log('  📸 rules-closed-390');
+// 以降のスクショは開いた状態に戻す
+await hp.setViewportSize({ width: 1280, height: 860 });
+await sleep(200);
+await hp.click('#rules-toggle');
+await sleep(300);
+
 // 既定（チャット右・開いている）で各幅
 for (const w of WIDTHS) await shot(hp, `game-open-right-${w}`, w);
 
@@ -118,15 +159,19 @@ await shot(hp, 'game-390-rules-sheet', 390, 780);
 
 await browser.close();
 
-// 入力欄チェックの集計
+// 集計
 const ng = checks.filter(c => !c.ok);
+const rulesNg = rulesChecks.filter(c => !c.ok);
 console.log('\n--- チャット入力欄チェック結果 ---');
 for (const c of checks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label} ${c.size}: bottom=${c.bottom} innerH=${c.inner}`);
-if (ng.length) {
-  console.log(`\n❌ ${ng.length} 件が画面外にはみ出しています`);
+console.log('--- ルール欄を閉じたときのチェック結果 ---');
+for (const c of rulesChecks) console.log(`  ${c.ok ? '✓' : '✗'} ${c.label}: 本文非表示=${c.bodyHidden} 帯下に本文=${c.textBelow}`);
+if (ng.length || rulesNg.length) {
+  if (ng.length) console.log(`\n❌ 入力欄 ${ng.length} 件が画面外`);
+  if (rulesNg.length) console.log(`❌ ルール欄 ${rulesNg.length} 件で本文が覗いている`);
   console.log('完了(スクショ):', OUT);
   process.exit(1);
 }
-console.log(`\n✅ 入力欄は全 ${checks.length} ケースで画面内`);
+console.log(`\n✅ 入力欄は全 ${checks.length} ケースで画面内／ルール欄は閉じると本文が隠れている`);
 console.log('完了(スクショ):', OUT);
 process.exit(0);

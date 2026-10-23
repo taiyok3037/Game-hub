@@ -256,16 +256,38 @@ $('#rules-sheet').addEventListener('click', e => { if (e.target === $('#rules-sh
 $('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 
 // PCのルール欄（#rules-box）の開閉。見出し行のボタンで開閉し、状態を保存する（初期値は開く）。
-function setRulesOpen(open) {
+// 閉じたときは本文を高さで縮めるのではなく hidden（display:none）にして、帯の下に覗かせない。
+// アニメーションは grid-template-rows(0fr↔1fr) で見せ、閉じ終わってから hidden を付ける。
+let rulesAnimTimer = null;
+function setRulesOpen(open, animate = true) {
   rulesOpen = open;
   lsSet(RULES_OPEN_KEY, open ? '1' : '0');
-  $('#rules-box').classList.toggle('rules-closed', !open);
+  const box = $('#rules-box'), body = $('#rules-body');
   $('#rules-toggle').setAttribute('aria-expanded', String(open));
   $('#rules-toggle .rules-head-label').textContent = open ? '隠す' : '表示';
   $('#rules-toggle .rules-head-caret').textContent = open ? '▲' : '▼';
+  clearTimeout(rulesAnimTimer);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (open) {
+    body.hidden = false; // 先に表示してから開くアニメ（hidden のままだと transition が走らない）
+    if (animate && !reduce) {
+      box.classList.add('rules-closed');    // 0fr の状態から
+      void body.offsetHeight;               // 反映させてから
+      box.classList.remove('rules-closed');  // 1fr へ開く
+    } else {
+      box.classList.remove('rules-closed');
+    }
+  } else {
+    box.classList.add('rules-closed');       // 1fr→0fr に畳む
+    if (animate && !reduce) {
+      rulesAnimTimer = setTimeout(() => { body.hidden = true; }, 180); // 畳み終わってから隠す
+    } else {
+      body.hidden = true;                    // 高さではなく display:none で隠す
+    }
+  }
 }
 $('#rules-toggle').addEventListener('click', () => setRulesOpen(!rulesOpen));
-setRulesOpen(rulesOpen);
+setRulesOpen(rulesOpen, false); // 初期は即反映（アニメなし）
 
 document.addEventListener('visibilitychange', updateChatVisible);
 mqMobile.addEventListener('change', () => {
