@@ -674,6 +674,7 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 /* 卓とサイドを束ねる基盤の入れ物。サイド（#side-col）は描き直されない */
 .main-wrap { display: grid; gap: 14px; min-width: 0; }
 .side-col { min-width: 0; display: grid; gap: 14px; align-content: start; }
+.game-root { min-width: 0; }
 #side-slot { min-width: 0; display: grid; gap: 14px; }
 #side-slot:empty { display: none; }
 #spectators-slot:empty { display: none; }
@@ -732,9 +733,16 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
    既定（767px以下）は1列（卓→サイドの順に縦）。チャットはシート、ルールはシート。 */
 .game-grid { display: grid; gap: 16px; align-items: start; }
 
-/* 768〜1099px：チャットを開くと 卓｜チャット300 の2列（左なら入れ替え）。
-   サイド（#side-col）は卓の下（#main-wrap は1列のまま）。閉じると卓だけの1列。 */
+/* 768〜907px：チャット列はまだ出さない（この幅で列にすると卓にカードが重なるため、
+   スマホと同じボトムシートで見せる）。卓だけを1列で広めに使う。 */
 @media (min-width: 768px) {
+  #screen-game { max-width: 760px; }
+}
+
+/* 908px以上：チャットを開くと 卓｜チャット300 の2列（左なら入れ替え）。
+   この幅なら卓の列が約560px以上を保てるので、カードが列からはみ出さない。
+   サイド（#side-col）は卓の下（#main-wrap は1列のまま）。閉じると卓だけの1列。 */
+@media (min-width: 908px) {
   #screen-game { max-width: 1040px; }
   #screen-game.chat-closed { max-width: 760px; }
   #screen-game.chat-open .game-grid { grid-template-columns: minmax(0, 1fr) 300px; }
@@ -881,9 +889,10 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 /* ⇄・× は PC のチャット列でだけ使う（スマホのシート・ロビー下段では隠す） */
 .chat-head-btns { display: none; }
 
-/* PCのチャット列（#chat-col）：見出し→一覧（ここだけスクロール）→リアクション→入力 */
+/* PCのチャット列（#chat-col）：見出し→一覧（ここだけスクロール）→リアクション→入力。
+   908px 未満ではボトムシートで見せるので列は出さない（卓との重なり防止）。 */
 .chat-col { display: none; }
-@media (min-width: 768px) {
+@media (min-width: 908px) {
   .chat-col {
     display: flex; flex-direction: column;
     position: sticky; top: 16px;

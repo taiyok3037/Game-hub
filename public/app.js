@@ -139,7 +139,10 @@ let chatOpen = lsGet(CHAT_OPEN_KEY) !== '0';            // 既定：開く
 let chatSide = lsGet(CHAT_SIDE_KEY) === 'left' ? 'left' : 'right'; // 既定：右
 let rulesOpen = lsGet(RULES_OPEN_KEY) !== '0';          // 既定：開く
 
-const mqMobile = window.matchMedia('(max-width: 767px)');
+// 907px 以下では、チャットを列ではなくボトムシートで見せる（狭い幅で卓にカードが
+// 重ならないように。CSS のチャット列も 908px 以上でだけ出す）。ルール欄は 768px から
+// 卓の下に出すので、ここの判定はチャットのシート化だけに関わる。
+const mqMobile = window.matchMedia('(max-width: 907px)');
 const isMobile = () => mqMobile.matches;
 let chatSheetOpen = false;  // スマホのチャットシートが開いているか
 let rulesSheetOpen = false; // スマホのルールシートが開いているか
