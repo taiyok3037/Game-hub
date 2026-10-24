@@ -3,6 +3,17 @@
 //  - プレイヤー欄の充実は項目4、演出は項目5
 import { timerHTML } from '/lib/timer.js';
 
+// ルール（基盤がルールパネル／ボトムシートに表示する）
+export const rules = `<ul>
+  <li>自分の番に1つだけ：材料を取る／レシピを予約する／レシピを作る のどれか</li>
+  <li>材料を取る…違う材料を3つ、または<strong>同じ材料2つは場に4枚以上あるときだけ</strong></li>
+  <li>予約…場か山の1枚を手元へ（3枚まで）。山から取ると秘伝のスパイス（万能）を1枚もらえる</li>
+  <li>作る…コストを材料で払う（足りない分はスパイス）。作ると割引が永久に1つ増え、次から安くなる</li>
+  <li>割引の組み合わせがそろうと常連さんが来店して +3点（1回の番で1人まで）</li>
+  <li>番の終わりに、<strong>手元のチップは10枚まで</strong>。超えたぶんは戻す</li>
+  <li><strong>だれかが15点になったらその周で最終周</strong>。点数が一番多い人の勝ち（同点は作ったレシピが少ない人）</li>
+</ul>`;
+
 // ===== ローカルUI状態（サーバー更新・自分の番の間だけ保つ）=====
 let store = null;          // { root, v, ctx }
 let sel = {};              // 取る選択 { color: 1|2 }
@@ -161,13 +172,12 @@ export function render(root, v, ctx) {
       ${actionBar(v, ctx, me, myTurn, pending)}
     </div>`;
 
-  // プレイヤー欄（最小・項目4で作り込む）
+  // プレイヤー欄（自分を先頭・少し大きく）＋記録
+  const ps = v.players || [];
+  const ordered = v.you >= 0 ? [ps[v.you], ...ps.filter((_, i) => i !== v.you)] : ps;
   const side = `<div class="g-side"><div class="rc-side">
-    ${(v.players || []).map(p => `
-      <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${p.id === ctx.me ? 'me' : ''}" data-member-id="${p.id}">
-        <span class="rc-pname">${esc0(p.name)}</span>
-        <span class="rc-ppts">${p.points}点</span>
-      </div>`).join('')}
+    ${ordered.map(p => playerPanel(v, ctx, p, me, myTurn, pending)).join('')}
+    <ul class="log rc-log">${(v.log || []).slice().reverse().slice(0, 12).map(l => `<li>${esc0(l)}</li>`).join('')}</ul>
   </div></div>`;
 
   root.innerHTML = `
@@ -190,25 +200,51 @@ function actionBar(v, ctx, me, myTurn, pending) {
   const move = takeMove(v);
   const canAct = canActAtAll(v, me);
 
-  const reservedStrip = me.reserved.length ? `
-    <div class="rc-mine-reserved">
-      <span class="rc-label2">予約中（タップで作る/確認）</span>
-      <div class="rc-mine-cards">${me.reserved.map((r, i) =>
-        r.card ? cardHTML(v, r.card, { buildable: payPlan(v, me, r.card).ok, tap: `data-card="reserved" data-index="${i}"` }) : deckPile(v, r.tier, '?', '')).join('')}</div>
-    </div>` : '';
-
   return `
     <div class="rc-actionbar paper">
       <div class="rc-take-row">
         <span class="rc-label2">取る材料</span>
-        <div class="rc-selchips">${chips || '<span class="muted">銀行のチップをタップ</span>'}</div>
+        <div class="rc-selchips">${chips || '<span class="muted">銀行のチップをタップ（カードはタップで作る/予約）</span>'}</div>
         <button class="btn primary small rc-take" ${move ? '' : 'disabled'}>取る</button>
         <button class="btn ghost small rc-clear" ${Object.keys(sel).length ? '' : 'disabled'}>選び直す</button>
       </div>
-      ${reservedStrip}
       ${!canAct ? '<div class="rc-pass-row"><span class="muted">取る・予約・作るができません</span><button class="btn primary small rc-pass">パスする</button></div>' : ''}
     </div>`;
 }
+// プレイヤー1人の欄
+function playerPanel(v, ctx, p, me, myTurn, pending) {
+  if (!p) return '';
+  const isMe = p.id === ctx.me;
+  const target = v.target || 15;
+  const tokens = [...ingOrder(v), spiceId(v)].map(id =>
+    `<span class="rc-ptok ${(p.tokens[id] || 0) === 0 ? 'zero' : ''}">${ingIcon(v, id, 'sm')}<span class="rc-ptok-n">${p.tokens[id] || 0}</span></span>`).join('');
+  const bonuses = ingOrder(v).filter(id => (p.bonus[id] || 0) > 0)
+    .map(id => `<span class="rc-pbonus">${ingIcon(v, id, 'sm')}<span class="rc-pbonus-n">${p.bonus[id]}</span></span>`).join('') || '<span class="muted">—</span>';
+  const reserved = (p.reserved || []).map((r, i) => {
+    if (r.card) {
+      const canBuildIt = isMe && myTurn && !pending && payPlan(v, me, r.card).ok;
+      const tap = (isMe && myTurn && !pending) ? `data-card="reserved" data-index="${i}"` : '';
+      return cardHTML(v, r.card, { buildable: canBuildIt, tap });
+    }
+    return deckPile(v, r.tier, '', ''); // 他人の山からの予約は裏向き
+  }).join('');
+  const regulars = (p.regulars || []).map(r =>
+    `<span class="rc-preg" title="${esc0(r.name)}">${esc0(r.name)} +${r.points}</span>`).join('');
+
+  return `
+    <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${isMe ? 'me' : ''}" data-member-id="${p.id}">
+      <div class="rc-phead">
+        <span class="rc-pname">${esc0(p.name)}${isMe ? '<span class="rc-you">あなた</span>' : ''}${p.left ? '<span class="rc-left">退席</span>' : ''}</span>
+        <span class="rc-ppts">${p.points}<small>点</small></span>
+      </div>
+      <div class="rc-pbar" aria-hidden="true"><span style="width:${Math.min(100, (p.points / target) * 100)}%"></span></div>
+      <div class="rc-prow"><span class="rc-plabel">手元</span><div class="rc-ptoks">${tokens}</div></div>
+      <div class="rc-prow"><span class="rc-plabel">割引</span><div class="rc-pbonuses">${bonuses}</div></div>
+      ${reserved ? `<div class="rc-prow"><span class="rc-plabel">予約</span><div class="rc-preserved">${reserved}</div></div>` : ''}
+      ${regulars ? `<div class="rc-prow"><span class="rc-plabel">常連</span><div class="rc-pregs">${regulars}</div></div>` : ''}
+    </div>`;
+}
+
 function turnLabel(v, ctx) {
   if (v.over) {
     const names = (v.players || []).filter(p => (v.winners || []).includes(p.id)).map(p => p.id === ctx.me ? 'あなた' : p.name);

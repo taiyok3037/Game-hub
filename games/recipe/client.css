@@ -76,15 +76,37 @@
 .rc-chip.spice { border-color: #7b4fa0; }
 .rc-chip.empty { opacity: .4; }
 
-/* ---- プレイヤー欄（最小・項目4で作り込む）---- */
-.rc-side { display: grid; gap: 6px; }
+/* ---- プレイヤー欄 ---- */
+.rc-side { display: grid; gap: 8px; }
 .rc-pcard {
-  display: flex; justify-content: space-between; align-items: center;
-  background: #fffdf7; border: 1px solid var(--paper-line); border-radius: 8px; padding: 8px 10px;
+  background: #fffdf7; border: 1px solid var(--paper-line); border-radius: 10px; padding: 8px 10px;
+  display: grid; gap: 6px;
 }
 .rc-pcard.turn { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+.rc-pcard.me { background: #fff; border-color: #cbb08a; }
 .rc-pcard.me .rc-pname { font-weight: 900; }
-.rc-ppts { font-weight: 900; }
+.rc-phead { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.rc-pname { font-weight: 700; }
+.rc-you { font-size: 10px; font-weight: 900; color: var(--red); margin-left: 4px; }
+.rc-left { font-size: 10px; color: var(--ink-soft); margin-left: 4px; }
+.rc-ppts { font-family: var(--font-title); font-weight: 700; font-size: 18px; }
+.rc-ppts small { font-size: 11px; font-weight: 700; }
+.rc-pbar { height: 6px; border-radius: 999px; background: rgba(0,0,0,.1); overflow: hidden; }
+.rc-pbar > span { display: block; height: 100%; background: var(--gold); }
+.rc-prow { display: flex; align-items: center; gap: 6px; font-size: 12px; }
+.rc-plabel { font-size: 10px; font-weight: 900; color: var(--ink-soft); min-width: 28px; flex-shrink: 0; }
+.rc-ptoks, .rc-pbonuses, .rc-pregs { display: flex; flex-wrap: wrap; gap: 3px 8px; }
+.rc-ptok, .rc-pbonus { display: inline-flex; align-items: center; gap: 1px; }
+.rc-ptok.zero { opacity: .3; }
+.rc-ptok-n, .rc-pbonus-n { font-size: 11px; font-weight: 900; }
+.rc-preserved { display: flex; gap: 4px; flex-wrap: wrap; }
+.rc-preserved .rc-card { --card-w: 52px; min-height: 72px; }
+.rc-preserved .rc-card .rc-card-name { font-size: 9px; }
+.rc-preg {
+  font-size: 10px; font-weight: 700; background: #fdf0d8; border: 1px solid var(--gold);
+  border-radius: 999px; padding: 1px 7px; color: #6b4226;
+}
+.rc-log { margin: 2px 0 0; }
 
 .rc-chip.picked { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset, 0 2px 0 rgba(0,0,0,.2); }
 .rc-chip-badge {
