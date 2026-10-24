@@ -19,6 +19,7 @@ let store = null;          // { root, v, ctx }
 let sel = {};              // 取る選択 { color: 1|2 }
 let openCard = null;       // 開いているカードパネル { from:'market'|'reserved'|'deck', tier, index }
 let discardSel = {};       // 戻すチップの選択 { color: n }
+let openDetail = {};       // 他の人の欄で詳細を開いている id { [id]: true }
 let uiKey = null;          // 手番が変わったら選択を捨てる
 let paintLocal = false;    // ローカル再描画か（効果音・演出を出さない）
 function rerender() { if (store) { paintLocal = true; render(store.root, store.v, store.ctx); } }
@@ -210,11 +211,12 @@ export function render(root, v, ctx) {
       ${v.over ? overPanel(v, ctx) : actionBar(v, ctx, me, myTurn, pending)}
     </div>`;
 
-  // プレイヤー欄（自分を先頭・少し大きく）＋記録
+  // 他の人の欄（自分は手元パネルに出すので一覧から外す。観戦者・脱落者は全員出す）＋記録
   const ps = v.players || [];
-  const ordered = v.you >= 0 ? [ps[v.you], ...ps.filter((_, i) => i !== v.you)] : ps;
+  const viewerPlaying = me && !me.left;
+  const others = viewerPlaying ? ps.filter((_, i) => i !== v.you) : ps;
   const side = `<div class="g-side"><div class="rc-side">
-    ${ordered.map(p => playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts)).join('')}
+    ${others.map(p => playerPanel(v, p, flashId, floatPts)).join('')}
     <ul class="log rc-log">${(v.log || []).slice().reverse().slice(0, 12).map(l => `<li>${esc0(l)}</li>`).join('')}</ul>
   </div></div>`;
 
@@ -313,40 +315,46 @@ function handPanel(v, ctx, me, myTurn, pending) {
     </section>`;
 }
 
-// プレイヤー1人の欄
-function playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts) {
+// 他の人1人の欄（コンパクト・タップで詳細を開閉）
+function playerPanel(v, p, flashId, floatPts) {
   if (!p) return '';
-  const isMe = p.id === ctx.me;
   const flash = p.id === flashId ? 'rc-flash' : '';
   const float = (p.id === flashId && floatPts) ? `<span class="rc-float">+${floatPts}</span>` : '';
-  const target = v.target || 15;
-  const tokens = [...ingOrder(v), spiceId(v)].map(id =>
-    `<span class="rc-ptok ${(p.tokens[id] || 0) === 0 ? 'zero' : ''}">${ingIcon(v, id, 'sm')}<span class="rc-ptok-n">${p.tokens[id] || 0}</span></span>`).join('');
+  const open = !!openDetail[p.id];
+  const tot = p.tokenCount != null ? p.tokenCount : [...ingOrder(v), spiceId(v)].reduce((a, id) => a + (p.tokens[id] || 0), 0);
   const bonuses = ingOrder(v).filter(id => (p.bonus[id] || 0) > 0)
-    .map(id => `<span class="rc-pbonus">${ingIcon(v, id, 'sm')}<span class="rc-pbonus-n">${p.bonus[id]}</span></span>`).join('') || '<span class="muted">—</span>';
-  const reserved = (p.reserved || []).map((r, i) => {
-    if (r.card) {
-      const canBuildIt = isMe && myTurn && !pending && payPlan(v, me, r.card).ok;
-      const tap = (isMe && myTurn && !pending) ? `data-card="reserved" data-index="${i}"` : '';
-      return cardHTML(v, r.card, { buildable: canBuildIt, tap, me: isMe ? me : null });
-    }
-    return deckPile(v, r.tier, '', ''); // 他人の山からの予約は裏向き
-  }).join('');
-  const regulars = (p.regulars || []).map(r =>
-    `<span class="rc-preg" title="${esc0(r.name)}">${esc0(r.name)} +${r.points}</span>`).join('');
+    .map(id => `<span class="rc-cb">${ingIcon(v, id, 'sm')}<span class="rc-cb-n">${p.bonus[id]}</span></span>`).join('') || '<span class="muted">割引なし</span>';
 
   return `
-    <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${isMe ? 'me' : ''} ${flash}" data-member-id="${p.id}">
+    <div class="rc-pcard compact ${p.isTurn ? 'turn' : ''} ${flash} ${open ? 'open' : ''}"
+         data-member-id="${p.id}" data-detail="${p.id}" role="button" tabindex="0" aria-expanded="${open}">
       ${float}
-      <div class="rc-phead">
-        <span class="rc-pname">${esc0(p.name)}${isMe ? '<span class="rc-you">あなた</span>' : ''}${p.left ? '<span class="rc-left">退席</span>' : ''}</span>
+      <div class="rc-pc-line1">
+        <span class="rc-pname">${esc0(p.name)}${p.left ? '<span class="rc-left">退席</span>' : ''}</span>
+        ${p.isTurn ? '<span class="rc-turnmark" title="手番">●</span>' : ''}
         <span class="rc-ppts">${p.points}<small>点</small></span>
       </div>
-      <div class="rc-pbar" aria-hidden="true"><span style="width:${Math.min(100, (p.points / target) * 100)}%"></span></div>
-      <div class="rc-prow"><span class="rc-plabel">手元</span><div class="rc-ptoks">${tokens}</div></div>
-      <div class="rc-prow"><span class="rc-plabel">割引</span><div class="rc-pbonuses">${bonuses}</div></div>
-      ${reserved ? `<div class="rc-prow"><span class="rc-plabel">予約</span><div class="rc-preserved">${reserved}</div></div>` : ''}
-      ${regulars ? `<div class="rc-prow"><span class="rc-plabel">常連</span><div class="rc-pregs">${regulars}</div></div>` : ''}
+      <div class="rc-pc-line2">
+        <span class="rc-cb-group">${bonuses}</span>
+        <span class="rc-cchip">チップ ${tot}</span>
+        ${p.reservedCount ? `<span class="rc-cres">予約 ${p.reservedCount}</span>` : ''}
+      </div>
+      ${open ? detailHTML(v, p) : ''}
+    </div>`;
+}
+// タップで開く詳細：材料ごとのチップ・予約の中身（見られる分）・来店した常連さん
+function detailHTML(v, p) {
+  const tokens = [...ingOrder(v), spiceId(v)].map(id =>
+    `<span class="rc-ptok ${(p.tokens[id] || 0) === 0 ? 'zero' : ''}">${ingIcon(v, id, 'sm')}<span class="rc-ptok-n">${p.tokens[id] || 0}</span></span>`).join('');
+  const reserved = (p.reserved || []).map(r =>
+    r.card ? cardHTML(v, r.card, {}) : deckPile(v, r.tier, '', '')).join('') || '<span class="muted">なし</span>';
+  const regulars = (p.regulars || []).map(r =>
+    `<span class="rc-preg" title="${esc0(r.name)}">${esc0(r.name)} +${r.points}</span>`).join('') || '<span class="muted">なし</span>';
+  return `
+    <div class="rc-pc-detail">
+      <div class="rc-prow"><span class="rc-plabel">チップ</span><div class="rc-ptoks">${tokens}</div></div>
+      <div class="rc-prow"><span class="rc-plabel">予約</span><div class="rc-preserved">${reserved}</div></div>
+      <div class="rc-prow"><span class="rc-plabel">常連</span><div class="rc-pregs">${regulars}</div></div>
     </div>`;
 }
 
@@ -452,6 +460,17 @@ function regularModal(v, pending) {
 
 // ===== 配線 =====
 function wire(root, v, ctx, me, myTurn, pending) {
+  // 他の人の欄：タップ（Enter/Space でも）で詳細を開閉。手番でなくても動く
+  root.querySelectorAll('[data-detail]').forEach(el => {
+    const toggle = () => {
+      const id = el.dataset.detail;
+      if (openDetail[id]) delete openDetail[id]; else openDetail[id] = true;
+      rerender();
+    };
+    el.onclick = toggle;
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); } };
+  });
+
   if (!myTurn) return;
 
   // 銀行のチップ（取る選択）

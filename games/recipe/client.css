@@ -128,23 +128,30 @@
 .rc-chip.spice { border-color: #7b4fa0; }
 .rc-chip.empty { opacity: .4; }
 
-/* ---- プレイヤー欄 ---- */
+/* ---- 他の人の欄（コンパクト・タップで詳細）---- */
 .rc-side { display: grid; gap: 8px; }
 .rc-pcard {
   background: #fffdf7; border: 1px solid var(--paper-line); border-radius: 10px; padding: 8px 10px;
   display: grid; gap: 6px;
 }
 .rc-pcard.turn { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
-.rc-pcard.me { background: #fff; border-color: #cbb08a; }
-.rc-pcard.me .rc-pname { font-weight: 900; }
-.rc-phead { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.rc-pcard.compact { padding: 7px 10px; gap: 4px; cursor: pointer; }
+.rc-pcard.compact:hover { background: #fff; }
+.rc-pc-line1 { display: flex; align-items: baseline; gap: 6px; }
+.rc-pc-line1 .rc-pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rc-turnmark { color: var(--gold); font-size: 12px; flex-shrink: 0; text-shadow: 0 0 1px rgba(0,0,0,.3); }
 .rc-pname { font-weight: 700; }
 .rc-you { font-size: 10px; font-weight: 900; color: var(--red); margin-left: 4px; }
 .rc-left { font-size: 10px; color: var(--ink-soft); margin-left: 4px; }
-.rc-ppts { font-family: var(--font-title); font-weight: 700; font-size: 18px; }
+.rc-ppts { font-family: var(--font-title); font-weight: 700; font-size: 18px; flex-shrink: 0; }
+.rc-pc-line1 .rc-ppts { font-size: 16px; }
 .rc-ppts small { font-size: 11px; font-weight: 700; }
-.rc-pbar { height: 6px; border-radius: 999px; background: rgba(0,0,0,.1); overflow: hidden; }
-.rc-pbar > span { display: block; height: 100%; background: var(--gold); }
+.rc-pc-line2 { display: flex; align-items: center; gap: 4px 10px; flex-wrap: wrap; font-size: 11px; font-weight: 700; color: var(--ink-soft); }
+.rc-cb-group { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.rc-cb { display: inline-flex; align-items: center; gap: 1px; }
+.rc-cb-n { font-size: 11px; font-weight: 900; color: var(--ink); }
+.rc-cchip, .rc-cres { white-space: nowrap; }
+.rc-pc-detail { display: grid; gap: 6px; margin-top: 2px; padding-top: 6px; border-top: 1px dashed var(--paper-line); }
 .rc-prow { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .rc-plabel { font-size: 10px; font-weight: 900; color: var(--ink-soft); min-width: 28px; flex-shrink: 0; }
 .rc-ptoks, .rc-pbonuses, .rc-pregs { display: flex; flex-wrap: wrap; gap: 3px 8px; }
