@@ -150,8 +150,28 @@
   padding: 10px 12px; border-radius: 8px; background: #fffdf7; border: 1px solid var(--paper-line);
 }
 .mg-result-row.picked { background: #fff3d6; border-color: var(--gold); box-shadow: 0 2px 0 rgba(0,0,0,.15); }
-.mg-result-text { font-family: var(--font-title); font-size: 18px; font-weight: 700; word-break: break-word; }
+.mg-result-text { font-family: var(--font-title); font-size: 18px; font-weight: 700; word-break: break-word; flex: 1 1 auto; }
+.mg-result-meta { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 .mg-result-author { font-size: 13px; font-weight: 900; color: var(--ink-soft); flex-shrink: 0; }
+
+/* ---- いいね ---- */
+.mg-phrase-text { flex: 1 1 auto; }
+.mg-like {
+  display: inline-flex; align-items: center; gap: 4px; flex-shrink: 0;
+  font-size: 13px; font-weight: 900; line-height: 1;
+  border: 1px solid var(--paper-line); border-radius: 999px;
+  background: #fffdf7; color: var(--ink-soft); padding: 5px 10px; min-height: 30px;
+}
+button.mg-like { cursor: pointer; }
+button.mg-like:active { transform: translateY(1px); }
+.mg-like .mg-like-ico { color: #c9b9a8; font-size: 14px; }
+.mg-like.liked { border-color: var(--red); background: #ffeef0; color: var(--red); }
+.mg-like.liked .mg-like-ico { color: var(--red); }
+.mg-like.static { background: transparent; border-color: transparent; padding: 5px 2px; }
+.mg-oshi {
+  font-size: 11px; font-weight: 900; color: var(--ink); flex-shrink: 0;
+  background: var(--gold); border-radius: 999px; padding: 3px 8px; white-space: nowrap;
+}
 
 /* ---- 準備OK ---- */
 .mg-ready { border-top: 2px dashed var(--paper-line); padding-top: 10px; display: grid; gap: 8px; }

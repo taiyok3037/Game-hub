@@ -611,9 +611,11 @@ io.on('connection', socket => {
   socket.on('game:action', (action = {}, cb = () => {}) => {
     const { room, member } = findBySocket(socket);
     if (!room || !member || room.phase !== 'playing') return cb({ error: 'ゲーム中ではありません' });
-    // 操作できるのは今のゲームの参加者だけ（脱落者も gamePlayerIds に残るので準備OKは押せる）
-    if (!room.gamePlayerIds.includes(member.id)) return cb({ error: '観戦中は操作できません' });
     const game = games[room.gameId];
+    // 操作できるのは今のゲームの参加者だけ（脱落者も gamePlayerIds に残るので準備OKは押せる）。
+    // ただしゲームが spectatorActions で宣言した種類の操作は、観戦者からも受け付ける（例：いいね）
+    const specOk = Array.isArray(game.spectatorActions) && game.spectatorActions.includes(action.type);
+    if (!room.gamePlayerIds.includes(member.id) && !specOk) return cb({ error: '観戦中は操作できません' });
     let result;
     try {
       result = game.action(room.state, member.id, action, roomInfo(room));

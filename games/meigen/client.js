@@ -14,6 +14,18 @@ export const rules = `<ul>
 // テーマ単語の先頭の「〜」は表示のとき取り除く
 const stripTilde = s => String(s == null ? '' : s).replace(/^〜/, '');
 
+// いいねタグ。押せる人（親・自作以外）にはボタン、それ以外は数だけ（0なら出さない）
+function likeTag(item, canLike) {
+  const n = item.likes || 0;
+  if (canLike && !item.mine) {
+    return `<button class="mg-like ${item.liked ? 'liked' : ''}" data-like="${item.pos}" aria-pressed="${!!item.liked}" aria-label="いいね">`
+      + `<span class="mg-like-ico" aria-hidden="true">♥</span><span class="mg-like-n">${n}</span></button>`;
+  }
+  return n > 0
+    ? `<span class="mg-like static ${item.liked ? 'liked' : ''}"><span class="mg-like-ico" aria-hidden="true">♥</span><span class="mg-like-n">${n}</span></span>`
+    : '';
+}
+
 // ---- 作成中のローカル状態（サーバー更新をまたいで保持する） ----
 let last = null;         // { root, v, ctx }
 let composer = null;     // 作成中のトークン配列（token[]）
@@ -136,7 +148,7 @@ export function render(root, v, ctx) {
   } else if (v.phase === 'judge') {
     center = judgeUI(v, ctx, { isParent });
   } else if (v.phase === 'result' || v.phase === 'over') {
-    center = resultUI(v, ctx, { name, isPlayer });
+    center = resultUI(v, ctx, { name, isPlayer, isParent });
   }
 
   // ---- 右側（得点・履歴・記録） ----
@@ -235,6 +247,7 @@ function judgeUI(v, ctx, { isParent }) {
   const canPick = isParent && fullyRevealed;
   const prevRevealed = (ctx.prev && ctx.prev.revealed != null) ? ctx.prev.revealed : revealed;
 
+  const canLike = !isParent; // 親以外（子・観戦者・退席者）はいいねできる
   const items = (v.phrases || []).map(ph => {
     const flipped = 'text' in ph; // めくられている
     const justFlipped = flipped && v.revealMode === 'one' && ph.pos >= prevRevealed;
@@ -244,9 +257,10 @@ function judgeUI(v, ctx, { isParent }) {
       canPick && judgePick === ph.pos ? 'picked' : '',
       ph.mine ? 'mine' : '',
     ].join(' ');
+    const you = ph.mine ? '<span class="mg-phrase-you">あなた</span>' : '';
     const inner = flipped
-      ? `<span class="mg-phrase-text">${esc(ph.text)}</span>${ph.mine ? '<span class="mg-phrase-you">あなた</span>' : ''}`
-      : `<span class="mg-phrase-back">＃${ph.pos + 1}</span>${ph.mine ? '<span class="mg-phrase-you">あなた</span>' : ''}`;
+      ? `<span class="mg-phrase-text">${esc(ph.text)}</span>${you}${likeTag(ph, canLike)}`
+      : `<span class="mg-phrase-back">＃${ph.pos + 1}</span>${you}`;
     return `<li class="mg-phrase ${cls}" ${canPick ? `data-pick="${ph.pos}"` : ''}>${inner}</li>`;
   }).join('');
 
@@ -275,7 +289,7 @@ function hostJudgeHelp(v, ctx, fullyRevealed) {
 }
 
 // ---------- 発表・決着UI ----------
-function resultUI(v, ctx, { name, isPlayer }) {
+function resultUI(v, ctx, { name, isPlayer, isParent }) {
   const { esc } = ctx;
   if (v.flow) {
     return `<div class="mg-result paper">
@@ -283,11 +297,19 @@ function resultUI(v, ctx, { name, isPlayer }) {
       ${v.phase === 'result' ? readyPanel(v, ctx, name) : ''}
     </div>`;
   }
-  const list = (v.results || []).map(r => `
+  const canLike = !isParent && v.phase === 'result'; // 発表中だけ付け外しできる（表彰式では不可）
+  const list = (v.results || []).map(r => {
+    const item = { pos: r.pos, likes: r.likes, liked: r.liked, mine: r.authorId === ctx.me };
+    return `
     <li class="mg-result-row ${r.picked ? 'picked' : ''}">
       <span class="mg-result-text">${esc(r.text)}</span>
-      <span class="mg-result-author">${esc(r.authorName)}${r.picked ? '　+1点' : ''}</span>
-    </li>`).join('');
+      <span class="mg-result-meta">
+        ${r.top ? '<span class="mg-oshi">みんなの推し</span>' : ''}
+        ${likeTag(item, canLike)}
+        <span class="mg-result-author">${esc(r.authorName)}${r.picked ? '　+1点' : ''}</span>
+      </span>
+    </li>`;
+  }).join('');
   const winBanner = v.phase === 'over'
     ? `<div class="mg-winner">🏆 ${v.winnerId === ctx.me ? 'あなた' : name(v.winnerId)} さんの勝ち！</div>`
     : '';
@@ -430,6 +452,11 @@ function wireEvents(root, v, ctx, { previewOf }) {
   };
   const force = root.querySelector('.mg-forcepick');
   if (force) force.onclick = () => { force.disabled = true; ctx.send({ type: 'forcePick' }); };
+
+  // いいね（親以外のプレイヤー・観戦者・退席者。短冊を選ぶ親クリックに巻き込まれないよう止める）
+  root.querySelectorAll('[data-like]').forEach(b => {
+    b.onclick = e => { e.stopPropagation(); ctx.send({ type: 'like', pos: Number(b.dataset.like) }); };
+  });
 
   // 準備OK
   const next = root.querySelector('.mg-next');

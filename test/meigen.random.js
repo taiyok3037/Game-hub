@@ -41,6 +41,7 @@ const cov = {
   draft: 0, submit: 0, unsubmit: 0, pick: 0, forcePick: 0,
   reveal: 0, revealAll: 0, pickTooEarly: 0,
   ready: 0, disconnect: 0, reconnect: 0, leave: 0,
+  like: 0, likeSpectator: 0,
   games: 0, flows: 0, overByTarget: 0, overByFew: 0,
 };
 
@@ -115,10 +116,10 @@ function checkInvariants(state, players) {
       assert(v.phrases.length === state.submissions.length, 'judge: phrases の数が提出数と違う');
       assert(v.results === undefined && v.pickId === undefined, 'judge: 作者つきの results/pickId が漏れている');
       for (const ph of v.phrases) {
-        assert(keysSubsetOf(ph, ['pos', 'text', 'mine']), `judge: phrase に余計なキー（作者漏れの恐れ）: ${Object.keys(ph)}`);
-        // 1枚ずつ発表：めくった分（pos < revealed）だけ本文がある。めくる前は本文なし
-        if (ph.pos >= state.revealed) assert(!('text' in ph), 'judge: めくる前の本文が view に漏れている');
-        else assert('text' in ph, 'judge: めくった短冊に本文がない');
+        assert(keysSubsetOf(ph, ['pos', 'text', 'mine', 'likes', 'liked']), `judge: phrase に余計なキー（作者漏れの恐れ）: ${Object.keys(ph)}`);
+        // 1枚ずつ発表：めくった分（pos < revealed）だけ本文・いいねがある。めくる前は何もなし
+        if (ph.pos >= state.revealed) assert(!('text' in ph) && !('likes' in ph), 'judge: めくる前の本文/いいねが view に漏れている');
+        else { assert('text' in ph, 'judge: めくった短冊に本文がない'); assert(Number.isInteger(ph.likes) && typeof ph.liked === 'boolean', 'judge: めくった短冊のいいね情報が不正'); }
       }
     }
     // 本人視点では自分の作品にだけ mine が付く
@@ -164,6 +165,77 @@ function randomPhrase(state, seat) {
     if (out.length >= MAX_TOKENS) break;
   }
   return out;
+}
+
+// いいねを乱択で付け外しする（親以外の参加者か観戦者が、めくった短冊に）。view が壊れないことも兼ねる
+function maybeLike(state, players, room) {
+  if (rnd() > 0.3) return;
+  const order = state.order || [];
+  const maxPos = state.phase === 'judge' ? state.revealed : order.length;
+  if (maxPos <= 0) return;
+  const pos = Math.floor(rnd() * maxPos);
+  const isSpec = rnd() < 0.35;
+  let likerId;
+  if (isSpec) likerId = 'spec-' + Math.floor(rnd() * 3);
+  else {
+    const pool = players.map((_, i) => i).filter(i => i !== state.parent && !state.left[i]);
+    if (!pool.length) return;
+    likerId = players[pick(pool)].id;
+  }
+  const r = game.action(state, likerId, { type: 'like', pos }, room());
+  if (!r || !r.error) { cov.like++; if (isSpec) cov.likeSpectator++; } // 自作などは error（想定内）
+}
+
+// 決め打ちで judge まで進める（いいねの決定的テスト用）
+function setupToJudge(n, revealMode) {
+  const players = makePlayers(n);
+  const room = () => ({ hostId: players[0].id, connectedIds: players.map(p => p.id) });
+  const state = game.setup(players, { target: 10, timeLimit: 0, themeMode: 'random', revealMode, blankCards: 1 });
+  assert(state.phase === 'compose', 'setupToJudge: compose で始まらない');
+  for (let i = 0; i < n; i++) {
+    if (i === state.parent) continue;
+    const tokens = randomPhrase(state, i);
+    const r = game.action(state, players[i].id, { type: 'submit', tokens }, room());
+    assert(!r || !r.error, 'setupToJudge submit: ' + (r && r.error));
+  }
+  assert(state.phase === 'judge', 'setupToJudge: judge に入らない');
+  return { players, room, state };
+}
+
+// いいねの決定的テスト（親・自作は拒否／付け外し／観戦者可／他の操作は観戦者拒否／連打制限）
+function likeTests() {
+  const { players, room, state } = setupToJudge(4, 'all'); // all なら最初から全部めくれている
+  const parentId = players[state.parent].id;
+  const order = state.order;
+  const child = players.findIndex((_, i) => i !== state.parent);
+  const childId = players[child].id;
+
+  // 親は不可
+  assert(game.action(state, parentId, { type: 'like', pos: 0 }, room()).error, '親の like は拒否されるべき');
+  // 自分の作品は不可
+  const myPos = order.findIndex(subIdx => state.submissions[subIdx].seat === child);
+  assert(game.action(state, childId, { type: 'like', pos: myPos }, room()).error, '自作への like は拒否されるべき');
+  // 他人の作品に付ける → 1、もう一度 → 0（付け外し）
+  const otherPos = order.findIndex(subIdx => state.submissions[subIdx].seat !== child);
+  let r = game.action(state, childId, { type: 'like', pos: otherPos }, room());
+  assert(!r || !r.error, 'like: ' + (r && r.error));
+  let v = game.view(state, childId);
+  assert(v.phrases[otherPos].likes === 1 && v.phrases[otherPos].liked === true, '付けた後のカウント/liked が不正');
+  game.action(state, childId, { type: 'like', pos: otherPos }, room());
+  v = game.view(state, childId);
+  assert(v.phrases[otherPos].likes === 0 && v.phrases[otherPos].liked === false, '外した後のカウント/liked が不正');
+  // 観戦者（seat=-1）からの like は受け付ける
+  r = game.action(state, 'spec-x', { type: 'like', pos: otherPos }, room());
+  assert(!r || !r.error, '観戦者の like が拒否された: ' + (r && r.error));
+  assert(game.view(state, childId).phrases[otherPos].likes === 1, '観戦者の like が数えられていない');
+  // 観戦者から like 以外の操作は拒否
+  assert(game.action(state, 'spec-x', { type: 'reveal' }, room()).error, '観戦者の reveal は拒否されるべき');
+  assert(game.action(state, 'spec-x', { type: 'pick', index: 0 }, room()).error, '観戦者の pick は拒否されるべき');
+  // 連打制限：1秒5回まで（6回目以降は silent＝無視）
+  let silent = 0;
+  for (let k = 0; k < 8; k++) { const rr = game.action(state, 'spec-burst', { type: 'like', pos: otherPos }, room()); if (rr && rr.silent) silent++; }
+  assert(silent >= 1, '連打制限（1秒5回）が効いていない');
+  console.log('  いいねの決定的テスト OK');
 }
 
 function runOne(n) {
@@ -284,6 +356,8 @@ function runOne(n) {
         continue;
       }
 
+      maybeLike(state, players, room); // めくった短冊にいいね（親以外・観戦者）
+
       // まだ全部めくっていない（1枚ずつ発表）→ めくる。たまに「めくる前の pick は拒否」を確認
       if (state.revealed < state.order.length) {
         if (rnd() < 0.1) {
@@ -315,6 +389,7 @@ function runOne(n) {
 
     if (state.phase === 'result') {
       if (state.flow && state.round !== lastFlowRound) { cov.flows++; lastFlowRound = state.round; }
+      if (!state.flow) maybeLike(state, players, room); // 発表中もいいねできる
       // 1イテレーションにつき1操作だけ行う（ラウンドの二重進行で recordPrompt が漏れないように）
       const activeNonHost = state.players.map((_, i) => i)
         .filter(i => !state.left[i] && state.players[i].id !== hostId);
@@ -362,6 +437,7 @@ function runOne(n) {
 }
 
 console.log('迷言メーカー乱数テスト開始…');
+likeTests();
 const t0 = Date.now();
 for (let n = 3; n <= 8; n++) {
   for (let i = 0; i < GAMES_PER_SIZE; i++) runOne(n);
@@ -376,5 +452,6 @@ assert(cov.reveal && cov.revealAll && cov.pickTooEarly, '1枚ずつ発表の網�
 assert(cov.chooseTheme && cov.timeoutTheme && cov.timeoutCompose, 'テーマ選択/時間切れの網羅不足');
 assert(cov.draft && cov.submit && cov.unsubmit && cov.pick && cov.forcePick, '作成系の網羅不足');
 assert(cov.ready && cov.disconnect && cov.reconnect && cov.leave, '準備OK/切断/退席の網羅不足');
+assert(cov.like && cov.likeSpectator, 'いいね（参加者・観戦者）の網羅不足');
 assert(cov.flows > 0, '流れたラウンドが一度もない');
 console.log(`\n✅ 全 ${cov.games} ゲーム 通過（${ms}ms）`);
