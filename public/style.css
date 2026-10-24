@@ -241,6 +241,30 @@ input:focus { border-color: var(--red); }
 .game-meta { font-size: 12px; color: var(--ink-soft); }
 .game-desc { font-size: 12px; color: var(--ink-soft); line-height: 1.5; }
 
+/* ゲームの箱＋右下の「ルール」ボタン（箱とは別の操作。ルームは作らない） */
+.game-box-wrap { position: relative; display: flex; }
+.game-box-wrap .game-box { flex: 1; width: 100%; }
+.game-rules-btn {
+  position: absolute; right: 8px; bottom: 8px; z-index: 1;
+  font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--ink); background: var(--paper-light);
+  border: 1px solid var(--paper-line); border-radius: 999px;
+  padding: 3px 12px; cursor: pointer; box-shadow: 0 2px 0 rgba(0,0,0,.2);
+}
+.game-rules-btn:hover { filter: brightness(.97); }
+.game-rules-btn:active { transform: translateY(1px); box-shadow: 0 1px 0 rgba(0,0,0,.2); }
+
+/* ルールのダイアログ（ホーム・中央のモーダル） */
+.rules-dialog {
+  width: min(460px, 92vw); max-height: 80dvh; overflow: auto;
+  border: none; border-radius: 16px; padding: 16px 18px;
+  color: var(--ink);
+}
+.rules-dialog::backdrop { background: rgba(0,0,0,.5); }
+.rules-dialog .sheet-body { overflow: auto; }
+.rules-dialog ul { margin: 0; padding-left: 18px; line-height: 1.8; color: var(--ink-soft); }
+.rules-dialog li + li { margin-top: 4px; }
+
 .hint {
   display: flex;
   align-items: center;
@@ -723,7 +747,8 @@ button.pcard:not(.back):disabled { filter: brightness(.82); }
 .rules-body-inner ul { margin: 0; padding-left: 18px; line-height: 1.7; color: var(--ink-soft); font-size: 13px; }
 .rules-body-inner li + li { margin-top: 4px; }
 @media (prefers-reduced-motion: reduce) { .rules-box-body { transition: none; } }
-@media (max-width: 767px) { .rules-box { display: none; } }
+/* ゲーム中のルール欄はスマホでは専用シートで見るので隠す（ロビーの #lobby-rules-box は残す） */
+@media (max-width: 767px) { #rules-box { display: none; } }
 /* PCでは g-side にルール欄があるので、ゲームバーのルールボタンは出さない */
 @media (min-width: 768px) { #rules-btn { display: none; } }
 /* ゲームバーが狭いときは、ボタンの文字を隠してアイコンだけにする（aria-label で読み上げ） */

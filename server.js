@@ -33,6 +33,9 @@ for (const dir of fs.readdirSync(GAMES_DIR)) {
     if (game[key] === undefined) throw new Error(`games/${dir}/server.js に "${key}" がありません`);
   }
   if (game.id !== dir) throw new Error(`games/${dir}: id はフォルダ名と同じにしてください`);
+  // client.js が `export const rules` を持つか（ホーム・ロビーのルール表示用）。起動時に1回だけ調べる
+  const clientFile = path.join(GAMES_DIR, dir, 'client.js');
+  game.hasRules = fs.existsSync(clientFile) && /export\s+const\s+rules\b/.test(fs.readFileSync(clientFile, 'utf8'));
   games[game.id] = game;
   console.log(`ゲーム登録: ${game.name} (${game.id})`);
 }
@@ -88,6 +91,7 @@ app.get('/api/games', (req, res) => {
     cover: { color: '#6b4a2e', mark: '?', markColor: '#3a2414', ...(g.cover || {}) },
     minPlayers: g.minPlayers,
     maxPlayers: g.maxPlayers,
+    hasRules: !!g.hasRules,
   })));
 });
 

@@ -135,9 +135,13 @@ const RULES_OPEN_KEY = 'gamehub-rules-open';
 function lsGet(key) { try { return localStorage.getItem(key); } catch { return null; } }
 function lsSet(key, val) { try { localStorage.setItem(key, val); } catch {} }
 
+const LOBBY_RULES_OPEN_KEY = 'gamehub-lobby-rules-open';
 let chatOpen = lsGet(CHAT_OPEN_KEY) !== '0';            // 既定：開く
 let chatSide = lsGet(CHAT_SIDE_KEY) === 'left' ? 'left' : 'right'; // 既定：右
-let rulesOpen = lsGet(RULES_OPEN_KEY) !== '0';          // 既定：開く
+let rulesOpen = lsGet(RULES_OPEN_KEY) !== '0';          // 既定：開く（ゲーム中）
+let lobbyRulesOpen = lsGet(LOBBY_RULES_OPEN_KEY) !== '0'; // 既定：開く（ロビー。ゲーム中と別キー）
+let lobbyRulesHtml = '';   // 今のロビーのゲームのルールHTML（import 済みなら持っておく）
+let lobbyRulesGame = null; // lobbyRulesHtml がどのゲームのものか
 
 // 907px 以下では、チャットを列ではなくボトムシートで見せる（狭い幅で卓にカードが
 // 重ならないように。CSS のチャット列も 908px 以上でだけ出す）。ルール欄は 768px から
@@ -259,6 +263,24 @@ $('#rules-sheet-close').addEventListener('click', closeRulesSheet);
 $('#rules-sheet').addEventListener('click', e => { if (e.target === $('#rules-sheet')) closeRulesSheet(); });
 $('#rules-sheet').addEventListener('close', () => { rulesSheetOpen = false; });
 
+// ---- ホームのルールダイアログ ----
+// ゲームの箱の「ルール」ボタンから開く。本文は必要になったときに client.js を import() して
+// export const rules を取り出す（ホームの読み込みを重くしないため）。背景タップ・Esc で閉じる。
+async function openHomeRules(id) {
+  const g = games.find(x => x.id === id);
+  $('#home-rules-title').textContent = g ? `${g.name} のルール` : 'ルール';
+  $('#home-rules-body').innerHTML = '<p class="muted">読み込み中…</p>';
+  $('#home-rules').showModal();
+  try {
+    const mod = await loadModule(id);
+    if ($('#home-rules').open) $('#home-rules-body').innerHTML = mod.rules || '<p class="muted">このゲームのルール説明はありません</p>';
+  } catch {
+    $('#home-rules-body').innerHTML = '<p class="muted">ルールを読み込めませんでした</p>';
+  }
+}
+$('#home-rules-close').addEventListener('click', () => $('#home-rules').close());
+$('#home-rules').addEventListener('click', e => { if (e.target === $('#home-rules')) $('#home-rules').close(); });
+
 // PCのルール欄（#rules-box）の開閉。見出し行のボタンで開閉し、状態を保存する（初期値は開く）。
 // 閉じたときは本文を高さで縮めるのではなく hidden（display:none）にして、帯の下に覗かせない。
 // アニメーションは grid-template-rows(0fr↔1fr) で見せ、閉じ終わってから hidden を付ける。
@@ -292,6 +314,53 @@ function setRulesOpen(open, animate = true) {
 }
 $('#rules-toggle').addEventListener('click', () => setRulesOpen(!rulesOpen));
 setRulesOpen(rulesOpen, false); // 初期は即反映（アニメなし）
+
+// ロビーのルール欄。ゲーム中の #rules-box と同じ見た目・開閉だが、別インスタンス・別の保存キー。
+// ロビーは描き直しのたびに lobby-body を作り直すので、ルールHTMLを持っておいて即描けるようにする。
+let lobbyRulesAnimTimer = null;
+function lobbyRulesBoxHTML() {
+  if (!lobbyRulesHtml) return '';
+  const open = lobbyRulesOpen;
+  return `
+    <div id="lobby-rules-box" class="rules-box paper ${open ? '' : 'rules-closed'}">
+      <button type="button" id="lobby-rules-toggle" class="rules-head" aria-expanded="${open}" aria-controls="lobby-rules-body">
+        <span class="rules-head-title">ルール</span>
+        <span class="rules-head-btn"><span class="rules-head-label">${open ? '隠す' : '表示'}</span> <span class="rules-head-caret" aria-hidden="true">${open ? '▲' : '▼'}</span></span>
+      </button>
+      <div id="lobby-rules-body" class="rules-box-body"${open ? '' : ' hidden'}><div class="rules-body-inner">${lobbyRulesHtml}</div></div>
+    </div>`;
+}
+function setLobbyRulesOpen(open, animate = true) {
+  lobbyRulesOpen = open;
+  lsSet(LOBBY_RULES_OPEN_KEY, open ? '1' : '0');
+  const box = $('#lobby-rules-box'), body = $('#lobby-rules-body'), toggle = $('#lobby-rules-toggle');
+  if (!box || !body || !toggle) return;
+  toggle.setAttribute('aria-expanded', String(open));
+  $('#lobby-rules-toggle .rules-head-label').textContent = open ? '隠す' : '表示';
+  $('#lobby-rules-toggle .rules-head-caret').textContent = open ? '▲' : '▼';
+  clearTimeout(lobbyRulesAnimTimer);
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (open) {
+    body.hidden = false;
+    if (animate && !reduce) { box.classList.add('rules-closed'); void body.offsetHeight; box.classList.remove('rules-closed'); }
+    else box.classList.remove('rules-closed');
+  } else {
+    box.classList.add('rules-closed');
+    if (animate && !reduce) lobbyRulesAnimTimer = setTimeout(() => { if (body) body.hidden = true; }, 180);
+    else body.hidden = true;
+  }
+}
+// ロビーのルール欄を配線し、まだHTMLが無ければ import() で取り出して描き直す
+function setupLobbyRules(gameId) {
+  const toggle = $('#lobby-rules-toggle');
+  if (toggle) toggle.onclick = () => setLobbyRulesOpen(!lobbyRulesOpen);
+  if (lobbyRulesGame === gameId) return; // 読み込み済み
+  loadModule(gameId).then(mod => {
+    lobbyRulesGame = gameId;
+    lobbyRulesHtml = mod.rules || '';
+    if (currentScreen === 'lobby' && room && room.gameId === gameId) renderLobby(room); // 取れたら描き直して差し込む
+  }).catch(() => {});
+}
 
 document.addEventListener('visibilitychange', updateChatVisible);
 mqMobile.addEventListener('change', () => {
@@ -386,18 +455,28 @@ async function initHome() {
 
   games = await (await fetch('/api/games')).json();
   $('#game-list').innerHTML = games.map(g => `
-    <button class="game-box" data-id="${esc(g.id)}">
-      <span class="game-cover" style="background:${esc(g.cover.color)}">
-        <span class="game-cover-card" style="color:${esc(g.cover.markColor)}">${esc(g.cover.mark)}</span>
-      </span>
-      <span class="game-body">
-        <span class="game-name">${esc(g.name)}</span>
-        <span class="game-meta">${esc(g.category)}・${g.minPlayers === g.maxPlayers ? g.minPlayers : `${g.minPlayers}〜${g.maxPlayers}`}人</span>
-        <span class="game-desc">${esc(g.description)}</span>
-      </span>
-    </button>`).join('');
+    <div class="game-box-wrap">
+      <button class="game-box" data-id="${esc(g.id)}">
+        <span class="game-cover" style="background:${esc(g.cover.color)}">
+          <span class="game-cover-card" style="color:${esc(g.cover.markColor)}">${esc(g.cover.mark)}</span>
+        </span>
+        <span class="game-body">
+          <span class="game-name">${esc(g.name)}</span>
+          <span class="game-meta">${esc(g.category)}・${g.minPlayers === g.maxPlayers ? g.minPlayers : `${g.minPlayers}〜${g.maxPlayers}`}人</span>
+          <span class="game-desc">${esc(g.description)}</span>
+        </span>
+      </button>
+      ${g.hasRules ? `<button type="button" class="game-rules-btn" data-rules="${esc(g.id)}" aria-label="${esc(g.name)}のルール">ルール</button>` : ''}
+    </div>`).join('');
 
   $('#game-list').addEventListener('click', async e => {
+    // ルールボタン：ルームは作らず、そのゲームのルールをダイアログで出す
+    const rulesBtn = e.target.closest('.game-rules-btn');
+    if (rulesBtn) {
+      e.stopPropagation();
+      openHomeRules(rulesBtn.dataset.rules);
+      return;
+    }
     const card = e.target.closest('.game-box');
     if (!card) return;
     const name = getName();
@@ -563,6 +642,7 @@ function renderLobby(r) {
     </li>`;
 
   $('#lobby-body').innerHTML = `
+    ${lobbyRulesBoxHTML()}
     <div class="lobby-choice" role="radiogroup" aria-label="参加するか観戦するか">
       <button class="lobby-opt ${iAmPlayer ? 'on' : ''}" role="radio" aria-checked="${iAmPlayer}"
         data-role="player" ${(!iAmPlayer && playersFull) ? 'disabled' : ''}>参加する</button>
@@ -618,6 +698,7 @@ function renderLobby(r) {
     if (res.error) toast(res.error);
   };
   wireOptions(r);
+  setupLobbyRules(r.gameId); // ルール欄の配線＋（未読込なら）ルールHTMLの取り込み
   const sees = $('#sees-all');
   if (sees) sees.onclick = async () => {
     const res = await call('lobby:settings', { spectatorSeesAll: sees.getAttribute('aria-checked') !== 'true' });
