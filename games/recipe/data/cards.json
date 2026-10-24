@@ -1,0 +1,1164 @@
+{
+  "_note": "喫茶店のレシピ帳のカードデータ（オリジナル）。tier: 1=まかない 2=定番 3=看板メニュー。bonus=作ると永久に割引される材料。",
+  "ingredients": [
+    {
+      "id": "coffee",
+      "name": "コーヒー豆",
+      "color": "#6b4226"
+    },
+    {
+      "id": "milk",
+      "name": "ミルク",
+      "color": "#f4efe6"
+    },
+    {
+      "id": "matcha",
+      "name": "抹茶",
+      "color": "#5f9b4c"
+    },
+    {
+      "id": "berry",
+      "name": "いちご",
+      "color": "#d6455d"
+    },
+    {
+      "id": "honey",
+      "name": "はちみつ",
+      "color": "#e8b33a"
+    }
+  ],
+  "wild": {
+    "id": "spice",
+    "name": "秘伝のスパイス",
+    "color": "#7b4fa0"
+  },
+  "tierNames": {
+    "1": "まかない",
+    "2": "定番",
+    "3": "看板メニュー"
+  },
+  "cards": [
+    {
+      "id": "1-coffee-1",
+      "tier": 1,
+      "name": "ブレンドコーヒー",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "milk": 1,
+        "berry": 1,
+        "matcha": 1,
+        "honey": 1
+      }
+    },
+    {
+      "id": "1-coffee-2",
+      "tier": 1,
+      "name": "アメリカン",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "milk": 1,
+        "berry": 2,
+        "matcha": 1,
+        "honey": 1
+      }
+    },
+    {
+      "id": "1-coffee-3",
+      "tier": 1,
+      "name": "エスプレッソ",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "milk": 2,
+        "berry": 2,
+        "honey": 1
+      }
+    },
+    {
+      "id": "1-coffee-4",
+      "tier": 1,
+      "name": "コーヒーゼリー",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "berry": 1,
+        "matcha": 3,
+        "coffee": 1
+      }
+    },
+    {
+      "id": "1-coffee-5",
+      "tier": 1,
+      "name": "水出しコーヒー",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "matcha": 2,
+        "honey": 1
+      }
+    },
+    {
+      "id": "1-coffee-6",
+      "tier": 1,
+      "name": "ドリップコーヒー",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "milk": 2,
+        "honey": 2
+      }
+    },
+    {
+      "id": "1-coffee-7",
+      "tier": 1,
+      "name": "コーヒー牛乳",
+      "bonus": "coffee",
+      "points": 0,
+      "cost": {
+        "berry": 3
+      }
+    },
+    {
+      "id": "1-coffee-8",
+      "tier": 1,
+      "name": "アイスコーヒー",
+      "bonus": "coffee",
+      "points": 1,
+      "cost": {
+        "honey": 4
+      }
+    },
+    {
+      "id": "1-milk-1",
+      "tier": 1,
+      "name": "ホットミルク",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "honey": 1,
+        "coffee": 1,
+        "berry": 1,
+        "matcha": 1
+      }
+    },
+    {
+      "id": "1-milk-2",
+      "tier": 1,
+      "name": "ミルクセーキ",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "honey": 1,
+        "coffee": 2,
+        "berry": 1,
+        "matcha": 1
+      }
+    },
+    {
+      "id": "1-milk-3",
+      "tier": 1,
+      "name": "プリン",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "honey": 2,
+        "coffee": 2,
+        "matcha": 1
+      }
+    },
+    {
+      "id": "1-milk-4",
+      "tier": 1,
+      "name": "カスタードクリーム",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "coffee": 1,
+        "berry": 3,
+        "milk": 1
+      }
+    },
+    {
+      "id": "1-milk-5",
+      "tier": 1,
+      "name": "ミルクティー",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "berry": 2,
+        "matcha": 1
+      }
+    },
+    {
+      "id": "1-milk-6",
+      "tier": 1,
+      "name": "牛乳寒天",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "honey": 2,
+        "matcha": 2
+      }
+    },
+    {
+      "id": "1-milk-7",
+      "tier": 1,
+      "name": "ヨーグルト",
+      "bonus": "milk",
+      "points": 0,
+      "cost": {
+        "coffee": 3
+      }
+    },
+    {
+      "id": "1-milk-8",
+      "tier": 1,
+      "name": "ミルクレープ",
+      "bonus": "milk",
+      "points": 1,
+      "cost": {
+        "matcha": 4
+      }
+    },
+    {
+      "id": "1-matcha-1",
+      "tier": 1,
+      "name": "抹茶ラテ",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "berry": 1,
+        "honey": 1,
+        "milk": 1,
+        "coffee": 1
+      }
+    },
+    {
+      "id": "1-matcha-2",
+      "tier": 1,
+      "name": "お抹茶",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "berry": 1,
+        "honey": 2,
+        "milk": 1,
+        "coffee": 1
+      }
+    },
+    {
+      "id": "1-matcha-3",
+      "tier": 1,
+      "name": "抹茶アイス",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "berry": 2,
+        "honey": 2,
+        "coffee": 1
+      }
+    },
+    {
+      "id": "1-matcha-4",
+      "tier": 1,
+      "name": "抹茶だんご",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "honey": 1,
+        "milk": 3,
+        "matcha": 1
+      }
+    },
+    {
+      "id": "1-matcha-5",
+      "tier": 1,
+      "name": "緑茶",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "milk": 2,
+        "coffee": 1
+      }
+    },
+    {
+      "id": "1-matcha-6",
+      "tier": 1,
+      "name": "抹茶クッキー",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "berry": 2,
+        "coffee": 2
+      }
+    },
+    {
+      "id": "1-matcha-7",
+      "tier": 1,
+      "name": "抹茶わらび餅",
+      "bonus": "matcha",
+      "points": 0,
+      "cost": {
+        "honey": 3
+      }
+    },
+    {
+      "id": "1-matcha-8",
+      "tier": 1,
+      "name": "抹茶ミルク",
+      "bonus": "matcha",
+      "points": 1,
+      "cost": {
+        "coffee": 4
+      }
+    },
+    {
+      "id": "1-berry-1",
+      "tier": 1,
+      "name": "いちごミルク",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "coffee": 1,
+        "matcha": 1,
+        "honey": 1,
+        "milk": 1
+      }
+    },
+    {
+      "id": "1-berry-2",
+      "tier": 1,
+      "name": "いちごジャムトースト",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "coffee": 1,
+        "matcha": 2,
+        "honey": 1,
+        "milk": 1
+      }
+    },
+    {
+      "id": "1-berry-3",
+      "tier": 1,
+      "name": "いちご大福",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "coffee": 2,
+        "matcha": 2,
+        "milk": 1
+      }
+    },
+    {
+      "id": "1-berry-4",
+      "tier": 1,
+      "name": "いちごジュース",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "matcha": 1,
+        "honey": 3,
+        "berry": 1
+      }
+    },
+    {
+      "id": "1-berry-5",
+      "tier": 1,
+      "name": "いちごタルト",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "honey": 2,
+        "milk": 1
+      }
+    },
+    {
+      "id": "1-berry-6",
+      "tier": 1,
+      "name": "いちごのショートケーキ",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "coffee": 2,
+        "milk": 2
+      }
+    },
+    {
+      "id": "1-berry-7",
+      "tier": 1,
+      "name": "いちごゼリー",
+      "bonus": "berry",
+      "points": 0,
+      "cost": {
+        "matcha": 3
+      }
+    },
+    {
+      "id": "1-berry-8",
+      "tier": 1,
+      "name": "いちごヨーグルト",
+      "bonus": "berry",
+      "points": 1,
+      "cost": {
+        "milk": 4
+      }
+    },
+    {
+      "id": "1-honey-1",
+      "tier": 1,
+      "name": "はちみつトースト",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "matcha": 1,
+        "milk": 1,
+        "coffee": 1,
+        "berry": 1
+      }
+    },
+    {
+      "id": "1-honey-2",
+      "tier": 1,
+      "name": "はちみつレモン",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "matcha": 1,
+        "milk": 2,
+        "coffee": 1,
+        "berry": 1
+      }
+    },
+    {
+      "id": "1-honey-3",
+      "tier": 1,
+      "name": "ハニーミルク",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "matcha": 2,
+        "milk": 2,
+        "berry": 1
+      }
+    },
+    {
+      "id": "1-honey-4",
+      "tier": 1,
+      "name": "はちみつバター",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "milk": 1,
+        "coffee": 3,
+        "honey": 1
+      }
+    },
+    {
+      "id": "1-honey-5",
+      "tier": 1,
+      "name": "ハニーカステラ",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "coffee": 2,
+        "berry": 1
+      }
+    },
+    {
+      "id": "1-honey-6",
+      "tier": 1,
+      "name": "ホットハニーティー",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "matcha": 2,
+        "berry": 2
+      }
+    },
+    {
+      "id": "1-honey-7",
+      "tier": 1,
+      "name": "ハニーナッツ",
+      "bonus": "honey",
+      "points": 0,
+      "cost": {
+        "milk": 3
+      }
+    },
+    {
+      "id": "1-honey-8",
+      "tier": 1,
+      "name": "はちみつ梅ソーダ",
+      "bonus": "honey",
+      "points": 1,
+      "cost": {
+        "berry": 4
+      }
+    },
+    {
+      "id": "2-coffee-1",
+      "tier": 2,
+      "name": "ウインナーコーヒー",
+      "bonus": "coffee",
+      "points": 1,
+      "cost": {
+        "milk": 3,
+        "berry": 2,
+        "coffee": 2
+      }
+    },
+    {
+      "id": "2-coffee-2",
+      "tier": 2,
+      "name": "ティラミス",
+      "bonus": "coffee",
+      "points": 1,
+      "cost": {
+        "berry": 3,
+        "matcha": 2,
+        "honey": 3
+      }
+    },
+    {
+      "id": "2-coffee-3",
+      "tier": 2,
+      "name": "コーヒーフロート",
+      "bonus": "coffee",
+      "points": 2,
+      "cost": {
+        "milk": 1,
+        "matcha": 4,
+        "honey": 2
+      }
+    },
+    {
+      "id": "2-coffee-4",
+      "tier": 2,
+      "name": "炭焼き珈琲",
+      "bonus": "coffee",
+      "points": 2,
+      "cost": {
+        "berry": 5
+      }
+    },
+    {
+      "id": "2-coffee-5",
+      "tier": 2,
+      "name": "アフォガート",
+      "bonus": "coffee",
+      "points": 2,
+      "cost": {
+        "matcha": 5,
+        "honey": 3
+      }
+    },
+    {
+      "id": "2-coffee-6",
+      "tier": 2,
+      "name": "モカ・ジャバ",
+      "bonus": "coffee",
+      "points": 3,
+      "cost": {
+        "coffee": 6
+      }
+    },
+    {
+      "id": "2-milk-1",
+      "tier": 2,
+      "name": "ロイヤルミルクティー",
+      "bonus": "milk",
+      "points": 1,
+      "cost": {
+        "honey": 3,
+        "coffee": 2,
+        "milk": 2
+      }
+    },
+    {
+      "id": "2-milk-2",
+      "tier": 2,
+      "name": "クリームソーダ",
+      "bonus": "milk",
+      "points": 1,
+      "cost": {
+        "coffee": 3,
+        "berry": 2,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "2-milk-3",
+      "tier": 2,
+      "name": "パンナコッタ",
+      "bonus": "milk",
+      "points": 2,
+      "cost": {
+        "honey": 1,
+        "berry": 4,
+        "matcha": 2
+      }
+    },
+    {
+      "id": "2-milk-4",
+      "tier": 2,
+      "name": "ホットケーキ",
+      "bonus": "milk",
+      "points": 2,
+      "cost": {
+        "coffee": 5
+      }
+    },
+    {
+      "id": "2-milk-5",
+      "tier": 2,
+      "name": "フレンチトースト",
+      "bonus": "milk",
+      "points": 2,
+      "cost": {
+        "berry": 5,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "2-milk-6",
+      "tier": 2,
+      "name": "クリームシチュー",
+      "bonus": "milk",
+      "points": 3,
+      "cost": {
+        "milk": 6
+      }
+    },
+    {
+      "id": "2-matcha-1",
+      "tier": 2,
+      "name": "抹茶パフェ",
+      "bonus": "matcha",
+      "points": 1,
+      "cost": {
+        "berry": 3,
+        "honey": 2,
+        "matcha": 2
+      }
+    },
+    {
+      "id": "2-matcha-2",
+      "tier": 2,
+      "name": "抹茶ロールケーキ",
+      "bonus": "matcha",
+      "points": 1,
+      "cost": {
+        "honey": 3,
+        "milk": 2,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "2-matcha-3",
+      "tier": 2,
+      "name": "抹茶あんみつ",
+      "bonus": "matcha",
+      "points": 2,
+      "cost": {
+        "berry": 1,
+        "milk": 4,
+        "coffee": 2
+      }
+    },
+    {
+      "id": "2-matcha-4",
+      "tier": 2,
+      "name": "抹茶フラッペ",
+      "bonus": "matcha",
+      "points": 2,
+      "cost": {
+        "honey": 5
+      }
+    },
+    {
+      "id": "2-matcha-5",
+      "tier": 2,
+      "name": "抹茶ティラミス",
+      "bonus": "matcha",
+      "points": 2,
+      "cost": {
+        "milk": 5,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "2-matcha-6",
+      "tier": 2,
+      "name": "抹茶ぜんざい",
+      "bonus": "matcha",
+      "points": 3,
+      "cost": {
+        "matcha": 6
+      }
+    },
+    {
+      "id": "2-berry-1",
+      "tier": 2,
+      "name": "いちごパフェ",
+      "bonus": "berry",
+      "points": 1,
+      "cost": {
+        "coffee": 3,
+        "matcha": 2,
+        "berry": 2
+      }
+    },
+    {
+      "id": "2-berry-2",
+      "tier": 2,
+      "name": "いちごのミルフィーユ",
+      "bonus": "berry",
+      "points": 1,
+      "cost": {
+        "matcha": 3,
+        "honey": 2,
+        "milk": 3
+      }
+    },
+    {
+      "id": "2-berry-3",
+      "tier": 2,
+      "name": "いちごクレープ",
+      "bonus": "berry",
+      "points": 2,
+      "cost": {
+        "coffee": 1,
+        "honey": 4,
+        "milk": 2
+      }
+    },
+    {
+      "id": "2-berry-4",
+      "tier": 2,
+      "name": "いちごのフレンチトースト",
+      "bonus": "berry",
+      "points": 2,
+      "cost": {
+        "matcha": 5
+      }
+    },
+    {
+      "id": "2-berry-5",
+      "tier": 2,
+      "name": "いちごかき氷",
+      "bonus": "berry",
+      "points": 2,
+      "cost": {
+        "honey": 5,
+        "milk": 3
+      }
+    },
+    {
+      "id": "2-berry-6",
+      "tier": 2,
+      "name": "いちごのロールケーキ",
+      "bonus": "berry",
+      "points": 3,
+      "cost": {
+        "berry": 6
+      }
+    },
+    {
+      "id": "2-honey-1",
+      "tier": 2,
+      "name": "ハニートースト",
+      "bonus": "honey",
+      "points": 1,
+      "cost": {
+        "matcha": 3,
+        "milk": 2,
+        "honey": 2
+      }
+    },
+    {
+      "id": "2-honey-2",
+      "tier": 2,
+      "name": "パンケーキ",
+      "bonus": "honey",
+      "points": 1,
+      "cost": {
+        "milk": 3,
+        "coffee": 2,
+        "berry": 3
+      }
+    },
+    {
+      "id": "2-honey-3",
+      "tier": 2,
+      "name": "はちみつワッフル",
+      "bonus": "honey",
+      "points": 2,
+      "cost": {
+        "matcha": 1,
+        "coffee": 4,
+        "berry": 2
+      }
+    },
+    {
+      "id": "2-honey-4",
+      "tier": 2,
+      "name": "ハニーラテ",
+      "bonus": "honey",
+      "points": 2,
+      "cost": {
+        "milk": 5
+      }
+    },
+    {
+      "id": "2-honey-5",
+      "tier": 2,
+      "name": "はちみつプリン",
+      "bonus": "honey",
+      "points": 2,
+      "cost": {
+        "coffee": 5,
+        "berry": 3
+      }
+    },
+    {
+      "id": "2-honey-6",
+      "tier": 2,
+      "name": "ハニーマスタードサンド",
+      "bonus": "honey",
+      "points": 3,
+      "cost": {
+        "honey": 6
+      }
+    },
+    {
+      "id": "3-coffee-1",
+      "tier": 3,
+      "name": "店主の特製ブレンド",
+      "bonus": "coffee",
+      "points": 3,
+      "cost": {
+        "milk": 3,
+        "berry": 3,
+        "matcha": 5,
+        "honey": 3
+      }
+    },
+    {
+      "id": "3-coffee-2",
+      "tier": 3,
+      "name": "幻の豆の一杯",
+      "bonus": "coffee",
+      "points": 4,
+      "cost": {
+        "honey": 7
+      }
+    },
+    {
+      "id": "3-coffee-3",
+      "tier": 3,
+      "name": "珈琲ゼリーパフェ",
+      "bonus": "coffee",
+      "points": 4,
+      "cost": {
+        "honey": 6,
+        "coffee": 3,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "3-coffee-4",
+      "tier": 3,
+      "name": "サイフォン珈琲の儀式",
+      "bonus": "coffee",
+      "points": 5,
+      "cost": {
+        "honey": 7,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "3-milk-1",
+      "tier": 3,
+      "name": "プリン・ア・ラ・モード",
+      "bonus": "milk",
+      "points": 3,
+      "cost": {
+        "honey": 3,
+        "coffee": 3,
+        "berry": 5,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "3-milk-2",
+      "tier": 3,
+      "name": "純喫茶のホットケーキ三段",
+      "bonus": "milk",
+      "points": 4,
+      "cost": {
+        "matcha": 7
+      }
+    },
+    {
+      "id": "3-milk-3",
+      "tier": 3,
+      "name": "ミルク雪のかき氷",
+      "bonus": "milk",
+      "points": 4,
+      "cost": {
+        "matcha": 6,
+        "milk": 3,
+        "berry": 3
+      }
+    },
+    {
+      "id": "3-milk-4",
+      "tier": 3,
+      "name": "牛乳屋さんの濃厚ソフト",
+      "bonus": "milk",
+      "points": 5,
+      "cost": {
+        "matcha": 7,
+        "milk": 3
+      }
+    },
+    {
+      "id": "3-matcha-1",
+      "tier": 3,
+      "name": "宇治抹茶の大パフェ",
+      "bonus": "matcha",
+      "points": 3,
+      "cost": {
+        "berry": 3,
+        "honey": 3,
+        "milk": 5,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "3-matcha-2",
+      "tier": 3,
+      "name": "茶師の一服",
+      "bonus": "matcha",
+      "points": 4,
+      "cost": {
+        "coffee": 7
+      }
+    },
+    {
+      "id": "3-matcha-3",
+      "tier": 3,
+      "name": "抹茶の三段重ね",
+      "bonus": "matcha",
+      "points": 4,
+      "cost": {
+        "coffee": 6,
+        "matcha": 3,
+        "milk": 3
+      }
+    },
+    {
+      "id": "3-matcha-4",
+      "tier": 3,
+      "name": "千年の抹茶かき氷",
+      "bonus": "matcha",
+      "points": 5,
+      "cost": {
+        "coffee": 7,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "3-berry-1",
+      "tier": 3,
+      "name": "いちごの塔パフェ",
+      "bonus": "berry",
+      "points": 3,
+      "cost": {
+        "coffee": 3,
+        "matcha": 3,
+        "honey": 5,
+        "milk": 3
+      }
+    },
+    {
+      "id": "3-berry-2",
+      "tier": 3,
+      "name": "苺づくしのアフタヌーンティー",
+      "bonus": "berry",
+      "points": 4,
+      "cost": {
+        "milk": 7
+      }
+    },
+    {
+      "id": "3-berry-3",
+      "tier": 3,
+      "name": "宝石いちごのタルト",
+      "bonus": "berry",
+      "points": 4,
+      "cost": {
+        "milk": 6,
+        "berry": 3,
+        "honey": 3
+      }
+    },
+    {
+      "id": "3-berry-4",
+      "tier": 3,
+      "name": "春のいちご祭り",
+      "bonus": "berry",
+      "points": 5,
+      "cost": {
+        "milk": 7,
+        "berry": 3
+      }
+    },
+    {
+      "id": "3-honey-1",
+      "tier": 3,
+      "name": "森の蜂蜜パンケーキ十段",
+      "bonus": "honey",
+      "points": 3,
+      "cost": {
+        "matcha": 3,
+        "milk": 3,
+        "coffee": 5,
+        "berry": 3
+      }
+    },
+    {
+      "id": "3-honey-2",
+      "tier": 3,
+      "name": "黄金のハニートースト",
+      "bonus": "honey",
+      "points": 4,
+      "cost": {
+        "berry": 7
+      }
+    },
+    {
+      "id": "3-honey-3",
+      "tier": 3,
+      "name": "女王蜂の特製ケーキ",
+      "bonus": "honey",
+      "points": 4,
+      "cost": {
+        "berry": 6,
+        "honey": 3,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "3-honey-4",
+      "tier": 3,
+      "name": "蜂蜜の大噴水",
+      "bonus": "honey",
+      "points": 5,
+      "cost": {
+        "berry": 7,
+        "honey": 3
+      }
+    }
+  ],
+  "regulars": [
+    {
+      "id": "r1",
+      "name": "新聞を読む紳士",
+      "points": 3,
+      "needs": {
+        "coffee": 4,
+        "milk": 4
+      }
+    },
+    {
+      "id": "r2",
+      "name": "窓際の小説家",
+      "points": 3,
+      "needs": {
+        "matcha": 4,
+        "berry": 4
+      }
+    },
+    {
+      "id": "r3",
+      "name": "甘党の刑事",
+      "points": 3,
+      "needs": {
+        "honey": 4,
+        "coffee": 4
+      }
+    },
+    {
+      "id": "r4",
+      "name": "部活帰りの高校生",
+      "points": 3,
+      "needs": {
+        "milk": 4,
+        "matcha": 4
+      }
+    },
+    {
+      "id": "r5",
+      "name": "常連のおばあちゃん",
+      "points": 3,
+      "needs": {
+        "berry": 4,
+        "honey": 4
+      }
+    },
+    {
+      "id": "r6",
+      "name": "締め切り前の漫画家",
+      "points": 3,
+      "needs": {
+        "coffee": 3,
+        "matcha": 3,
+        "honey": 3
+      }
+    },
+    {
+      "id": "r7",
+      "name": "黒服の謎の男",
+      "points": 3,
+      "needs": {
+        "milk": 3,
+        "berry": 3,
+        "coffee": 3
+      }
+    },
+    {
+      "id": "r8",
+      "name": "犬の散歩の途中の人",
+      "points": 3,
+      "needs": {
+        "matcha": 3,
+        "honey": 3,
+        "milk": 3
+      }
+    },
+    {
+      "id": "r9",
+      "name": "朝いちばんの会社員",
+      "points": 3,
+      "needs": {
+        "berry": 3,
+        "coffee": 3,
+        "matcha": 3
+      }
+    },
+    {
+      "id": "r10",
+      "name": "自称・宇宙人",
+      "points": 3,
+      "needs": {
+        "honey": 3,
+        "milk": 3,
+        "berry": 3
+      }
+    }
+  ]
+}
