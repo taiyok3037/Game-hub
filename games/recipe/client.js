@@ -1,8 +1,17 @@
 // 喫茶店のレシピ帳の画面
-//  - 毎回まるごと描き直す。操作は項目3、プレイヤー欄の充実は項目4で足す
+//  - 毎回まるごと描き直す。操作はすべて ctx.send、ルール判定はサーバー
+//  - プレイヤー欄の充実は項目4、演出は項目5
 import { timerHTML } from '/lib/timer.js';
 
-// ---- 材料アイコン（インラインSVG・画像は使わない。形でも区別できるように）----
+// ===== ローカルUI状態（サーバー更新・自分の番の間だけ保つ）=====
+let store = null;          // { root, v, ctx }
+let sel = {};              // 取る選択 { color: 1|2 }
+let openCard = null;       // 開いているカードパネル { from:'market'|'reserved'|'deck', tier, index }
+let discardSel = {};       // 戻すチップの選択 { color: n }
+let uiKey = null;          // 手番が変わったら選択を捨てる
+function rerender() { if (store) render(store.root, store.v, store.ctx); }
+
+// ===== 材料アイコン =====
 const SHAPES = {
   coffee: '<ellipse cx="12" cy="12" rx="6.5" ry="8.5"/><path d="M12 4.5 C9 9 15 15 12 19.5" fill="none" stroke-width="1.6"/>',
   milk: '<path d="M12 3 C7.5 11 7.5 15.5 12 20.5 C16.5 15.5 16.5 11 12 3 Z"/>',
@@ -11,13 +20,6 @@ const SHAPES = {
   honey: '<polygon points="12,3 20,7.5 20,16.5 12,21 4,16.5 4,7.5"/>',
   spice: '<polygon points="12,2.2 14.6,8.9 21.8,9.2 16.1,13.7 18,20.7 12,16.6 6,20.7 7.9,13.7 2.2,9.2 9.4,8.9"/>',
 };
-// その材料の色（ミルクなど薄い色は濃い枠を付ける）
-function ingIcon(v, id, cls = '') {
-  const color = colorOf(v, id);
-  const light = isLight(color);
-  const stroke = light ? '#8a7a66' : 'rgba(0,0,0,.35)';
-  return `<svg class="rc-ico ${cls}" viewBox="0 0 24 24" aria-hidden="true" style="--ic:${color};--is:${stroke}">${SHAPES[id] || ''}</svg>`;
-}
 function colorOf(v, id) {
   if (v.wild && id === v.wild.id) return v.wild.color;
   const m = (v.ingredients || []).find(i => i.id === id);
@@ -28,37 +30,44 @@ function nameOf(v, id) {
   const m = (v.ingredients || []).find(i => i.id === id);
   return m ? m.name : id;
 }
-// 明るい色か（枠を付けるか）の簡易判定
 function isLight(hex) {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
   if (!m) return false;
   const n = parseInt(m[1], 16);
-  const r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
-  return (0.299 * r + 0.587 * g + 0.114 * b) > 180;
+  return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) > 180;
+}
+function ingIcon(v, id, cls = '') {
+  const color = colorOf(v, id);
+  const stroke = isLight(color) ? '#8a7a66' : 'rgba(0,0,0,.35)';
+  return `<svg class="rc-ico ${cls}" viewBox="0 0 24 24" aria-hidden="true" style="--ic:${color};--is:${stroke}">${SHAPES[id] || ''}</svg>`;
 }
 
-// ---- 銀行のチップ ----
-function bankChip(v, id, count, extra = '') {
-  return `<div class="rc-chip ${id === (v.wild || {}).id ? 'spice' : ''} ${count <= 0 ? 'empty' : ''}" data-color="${id}" ${extra}>
-    ${ingIcon(v, id)}<span class="rc-chip-n">${count}</span>
-  </div>`;
-}
-function bankRow(v) {
-  const order = [...(v.ingredientOrder || []), (v.wild || {}).id].filter(Boolean);
-  return `<div class="rc-bank">${order.map(id => bankChip(v, id, v.bank[id])).join('')}</div>`;
+let esc0 = s => String(s == null ? '' : s);
+const ingOrder = v => v.ingredientOrder || [];
+const spiceId = v => (v.wild || {}).id;
+
+// ===== 支払いの計算（クライアント側・サーバーと同じ式）=====
+function payPlan(v, me, card) {
+  const plan = {}; let spice = 0; const needs = {};
+  for (const id of ingOrder(v)) {
+    const need = Math.max(0, (card.cost[id] || 0) - (me.bonus[id] || 0));
+    needs[id] = need;
+    const fromIng = Math.min(need, me.tokens[id] || 0);
+    plan[id] = fromIng; spice += need - fromIng;
+  }
+  return { ok: spice <= (me.tokens[spiceId(v)] || 0), plan, spice, needs };
 }
 
-// ---- カード ----
+// ===== カード・チップの部品 =====
 const TIER_CLASS = { 1: 'tier1', 2: 'tier2', 3: 'tier3' };
 function costHTML(v, card) {
   const cost = card.cost || {};
-  const parts = (v.ingredientOrder || []).filter(id => cost[id] > 0).map(id =>
-    `<span class="rc-cost-one">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span></span>`);
-  return `<div class="rc-cost">${parts.join('')}</div>`;
+  return `<div class="rc-cost">${ingOrder(v).filter(id => cost[id] > 0).map(id =>
+    `<span class="rc-cost-one">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span></span>`).join('')}</div>`;
 }
-function cardHTML(v, card, { buildable = false, tapData = '' } = {}) {
+function cardHTML(v, card, { buildable = false, tap = '' } = {}) {
   if (!card) return `<div class="rc-card empty" aria-hidden="true"></div>`;
-  return `<div class="rc-card ${TIER_CLASS[card.tier]} ${buildable ? 'buildable' : ''}" ${tapData}>
+  return `<div class="rc-card ${TIER_CLASS[card.tier]} ${buildable ? 'buildable' : ''}" ${tap}>
     <div class="rc-card-band">
       ${card.points ? `<span class="rc-pts">${card.points}</span>` : '<span></span>'}
       <span class="rc-card-bonus">${ingIcon(v, card.bonus)}</span>
@@ -67,41 +76,78 @@ function cardHTML(v, card, { buildable = false, tapData = '' } = {}) {
     ${costHTML(v, card)}
   </div>`;
 }
-// 山（裏向きのカード・段階名と残り枚数）
-function deckPile(v, tier, count, tapData = '') {
-  return `<div class="rc-card back ${TIER_CLASS[tier]} ${count <= 0 ? 'empty' : ''}" ${tapData}>
+function deckPile(v, tier, count, tap = '') {
+  return `<div class="rc-card back ${TIER_CLASS[tier]} ${count <= 0 ? 'empty' : ''}" ${tap}>
     <div class="rc-back-name">${esc0((v.tierNames || {})[tier] || '')}</div>
     <div class="rc-back-count">残り ${count}</div>
   </div>`;
 }
-
-// ---- 常連さん ----
-function regularHTML(v, r) {
+function bankChip(v, id, count, tap = '') {
+  const picked = sel[id] || 0;
+  return `<div class="rc-chip ${id === spiceId(v) ? 'spice' : ''} ${count <= 0 ? 'empty' : ''} ${picked ? 'picked' : ''}" ${tap}>
+    ${ingIcon(v, id)}<span class="rc-chip-n">${count}</span>${picked ? `<span class="rc-chip-badge">${picked}</span>` : ''}
+  </div>`;
+}
+function regularHTML(v, r, cls = '', tap = '') {
   const needs = Object.entries(r.needs || {}).map(([id, n]) =>
     `<span class="rc-need">${ingIcon(v, id, 'sm')}<span class="rc-need-n">${n}</span></span>`).join('');
-  return `<div class="rc-regular" title="${esc0(r.name)}">
+  return `<div class="rc-regular ${cls}" ${tap} title="${esc0(r.name)}">
     <div class="rc-reg-pts">+${r.points}</div>
     <div class="rc-reg-name">${esc0(r.name)}</div>
     <div class="rc-reg-needs">${needs}</div>
   </div>`;
 }
 
-// esc は ctx.esc を使うが、部品関数では簡易に閉じ込める
-let esc0 = s => String(s == null ? '' : s);
+// ===== 取れるか・できることがあるか（パスの判定）=====
+function availColors(v) { return ingOrder(v).filter(c => v.bank[c] > 0); }
+function canReserve(v, me) { return me.reservedCount < v.maxReserve && (v.market.some(row => row.some(c => c)) || v.deckCounts.some(n => n > 0)); }
+function canBuildAny(v, me) {
+  for (const row of v.market) for (const c of row) if (c && payPlan(v, me, c).ok) return true;
+  for (const r of me.reserved) if (r.card && payPlan(v, me, r.card).ok) return true;
+  return false;
+}
+function canActAtAll(v, me) { return availColors(v).length > 0 || canReserve(v, me) || canBuildAny(v, me); }
+
+// 取る選択から合法な action を作る（不可なら null）
+function takeMove(v) {
+  const colors = Object.keys(sel);
+  if (!colors.length) return null;
+  if (colors.length === 1 && sel[colors[0]] === 2) return v.bank[colors[0]] >= 4 ? { type: 'take2', color: colors[0] } : null;
+  if (colors.every(c => sel[c] === 1)) {
+    if (colors.length === Math.min(3, availColors(v).length)) return { type: 'take3', colors };
+  }
+  return null;
+}
 
 export function render(root, v, ctx) {
+  store = { root, v, ctx };
   esc0 = ctx.esc;
+  const me = v.you >= 0 ? v.players[v.you] : null;
+  const myTurn = !!ctx.yourTurn && !!me && !v.over;
+  const pending = v.pending || null;
 
-  // 場：常連さん → 看板(3) → 定番(2) → まかない(1) の順
+  // 手番が変わったら選択を捨てる
+  const key = `${v.turnSeat}:${v.round}:${v.phase}`;
+  if (!myTurn || key !== uiKey) { if (key !== uiKey) { sel = {}; openCard = null; discardSel = {}; } uiKey = key; }
+  if (!myTurn) { sel = {}; openCard = null; }
+
+  // ---- 場 ----
   const regulars = `<div class="rc-regulars">${(v.regulars || []).map(r => regularHTML(v, r)).join('') || '<span class="muted">なし</span>'}</div>`;
   const tierRow = tier => {
     const idx = tier - 1;
-    const face = (v.market[idx] || []).map((c, i) => cardHTML(v, c)).join('');
+    const face = (v.market[idx] || []).map((c, i) => {
+      const buildable = myTurn && !pending && c && payPlan(v, me, c).ok;
+      const tap = (myTurn && !pending && c) ? `data-card="market" data-tier="${tier}" data-index="${i}"` : '';
+      return cardHTML(v, c, { buildable, tap });
+    }).join('');
+    const deckTap = (myTurn && !pending && v.deckCounts[idx] > 0 && me.reservedCount < v.maxReserve) ? `data-card="deck" data-tier="${tier}"` : '';
     return `<div class="rc-row">
-      <div class="rc-deck">${deckPile(v, tier, v.deckCounts[idx])}</div>
+      <div class="rc-deck">${deckPile(v, tier, v.deckCounts[idx], deckTap)}</div>
       <div class="rc-face">${face}</div>
     </div>`;
   };
+  const bankTap = (myTurn && !pending) ? id => `data-chip="${id}"` : () => '';
+  const bank = `<div class="rc-bank">${[...ingOrder(v), spiceId(v)].map(id => bankChip(v, id, v.bank[id], bankTap(id))).join('')}</div>`;
 
   const felt = `
     <div class="felt rc-felt">
@@ -109,16 +155,13 @@ export function render(root, v, ctx) {
         <div class="rc-regulars-wrap"><div class="rc-label">常連さん</div>${regulars}</div>
         ${ctx.deadline != null ? `<div class="rc-timer">${timerHTML(ctx.deadline, ctx)}</div>` : ''}
       </div>
-      <div class="rc-board">
-        ${tierRow(3)}
-        ${tierRow(2)}
-        ${tierRow(1)}
-      </div>
+      <div class="rc-board">${tierRow(3)}${tierRow(2)}${tierRow(1)}</div>
       <div class="rc-label">材料の銀行</div>
-      ${bankRow(v)}
+      ${bank}
+      ${actionBar(v, ctx, me, myTurn, pending)}
     </div>`;
 
-  // プレイヤー欄は項目4で作る。ここでは最小限（名前・点数）だけ
+  // プレイヤー欄（最小・項目4で作り込む）
   const side = `<div class="g-side"><div class="rc-side">
     ${(v.players || []).map(p => `
       <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${p.id === ctx.me ? 'me' : ''}" data-member-id="${p.id}">
@@ -131,5 +174,205 @@ export function render(root, v, ctx) {
     <div class="g-layout rc">
       <div class="g-main">${felt}</div>
       ${side}
+    </div>
+    ${modalHTML(v, ctx, me, myTurn, pending)}`;
+
+  wire(root, v, ctx, me, myTurn, pending);
+}
+
+// ===== 操作バー（取る選択・パス・自分の予約）=====
+function actionBar(v, ctx, me, myTurn, pending) {
+  if (!myTurn) return `<div class="rc-turnnote note plain"><small>${v.over ? '決着' : '進行中'}</small><strong>${turnLabel(v, ctx)}</strong></div>`;
+  if (pending) return ''; // pending はモーダルで扱う
+
+  // 取る選択の表示
+  const chips = Object.entries(sel).flatMap(([c, n]) => Array.from({ length: n }, () => `<span class="rc-selchip">${ingIcon(v, c, 'sm')}</span>`)).join('');
+  const move = takeMove(v);
+  const canAct = canActAtAll(v, me);
+
+  const reservedStrip = me.reserved.length ? `
+    <div class="rc-mine-reserved">
+      <span class="rc-label2">予約中（タップで作る/確認）</span>
+      <div class="rc-mine-cards">${me.reserved.map((r, i) =>
+        r.card ? cardHTML(v, r.card, { buildable: payPlan(v, me, r.card).ok, tap: `data-card="reserved" data-index="${i}"` }) : deckPile(v, r.tier, '?', '')).join('')}</div>
+    </div>` : '';
+
+  return `
+    <div class="rc-actionbar paper">
+      <div class="rc-take-row">
+        <span class="rc-label2">取る材料</span>
+        <div class="rc-selchips">${chips || '<span class="muted">銀行のチップをタップ</span>'}</div>
+        <button class="btn primary small rc-take" ${move ? '' : 'disabled'}>取る</button>
+        <button class="btn ghost small rc-clear" ${Object.keys(sel).length ? '' : 'disabled'}>選び直す</button>
+      </div>
+      ${reservedStrip}
+      ${!canAct ? '<div class="rc-pass-row"><span class="muted">取る・予約・作るができません</span><button class="btn primary small rc-pass">パスする</button></div>' : ''}
     </div>`;
+}
+function turnLabel(v, ctx) {
+  if (v.over) {
+    const names = (v.players || []).filter(p => (v.winners || []).includes(p.id)).map(p => p.id === ctx.me ? 'あなた' : p.name);
+    return names.length ? `🏆 ${names.join('・')} の勝ち！` : '決着';
+  }
+  const cur = (v.players || []).find(p => p.id === v.turnId);
+  return cur ? `${cur.id === ctx.me ? 'あなた' : esc0(cur.name)} の番` : '';
+}
+
+// ===== モーダル（カード詳細 / 戻す / 常連さん）=====
+function modalHTML(v, ctx, me, myTurn, pending) {
+  if (myTurn && pending && pending.type === 'discard') return discardModal(v, me, pending);
+  if (myTurn && pending && pending.type === 'regular') return regularModal(v, pending);
+  if (myTurn && openCard) return cardModal(v, me, openCard);
+  return '';
+}
+function cardModal(v, me, oc) {
+  let card = null, canBuild = false, canReserveThis = false, deckMode = false;
+  if (oc.from === 'deck') { deckMode = true; canReserveThis = me.reservedCount < v.maxReserve; }
+  else if (oc.from === 'market') { card = (v.market[oc.tier - 1] || [])[oc.index]; canReserveThis = me.reservedCount < v.maxReserve; }
+  else if (oc.from === 'reserved') { const r = me.reserved[oc.index]; card = r && r.card; }
+  if (!deckMode && !card) return '';
+
+  let body;
+  if (deckMode) {
+    body = `<p class="rc-modal-deck">${esc0((v.tierNames || {})[oc.tier] || '')}の山から<strong>見ずに予約</strong>します。<br>中身は予約してから自分だけ見られます。</p>`;
+  } else {
+    const pp = payPlan(v, me, card);
+    canBuild = pp.ok;
+    const payParts = ingOrder(v).filter(id => pp.needs[id] > 0).map(id =>
+      `<span class="rc-pay-one">${ingIcon(v, id, 'sm')}<span class="rc-pay-n">${pp.plan[id]}</span></span>`).join('');
+    const spicePart = pp.spice > 0 ? `<span class="rc-pay-one spice">${ingIcon(v, spiceId(v), 'sm')}<span class="rc-pay-n">${pp.spice}</span></span>` : '';
+    body = `
+      <div class="rc-modal-card">${cardHTML(v, card)}</div>
+      <div class="rc-modal-info">
+        <div class="rc-modal-name">${esc0(card.name)}${card.points ? `（${card.points}点）` : ''}</div>
+        <div class="rc-modal-row"><span>割引</span>${ingIcon(v, card.bonus, 'sm')} +1</div>
+        <div class="rc-modal-row"><span>割引後に払う</span>${payParts || '<span class="muted">0</span>'}${spicePart}</div>
+        ${!pp.ok ? '<div class="rc-modal-warn">材料が足りません</div>' : ''}
+      </div>`;
+  }
+  return `<div class="rc-modal-bg" data-close-modal>
+    <div class="rc-modal paper" role="dialog">
+      ${body}
+      <div class="rc-modal-btns">
+        ${!deckMode && canBuild ? '<button class="btn primary rc-build">作る</button>' : ''}
+        ${(deckMode || oc.from === 'market') && canReserveThis ? `<button class="btn ghost rc-reserve">${deckMode ? '見ずに予約する' : '予約する'}</button>` : ''}
+        <button class="btn ghost small rc-close">閉じる</button>
+      </div>
+    </div>
+  </div>`;
+}
+function discardModal(v, me, pending) {
+  const total = Object.values(discardSel).reduce((a, n) => a + n, 0);
+  const rows = [...ingOrder(v), spiceId(v)].filter(id => (me.tokens[id] || 0) > 0).map(id => {
+    const picked = discardSel[id] || 0;
+    return `<div class="rc-disc-row">
+      ${ingIcon(v, id)}<span class="rc-disc-name">${esc0(nameOf(v, id))}</span>
+      <span class="rc-disc-have">手元 ${me.tokens[id]}</span>
+      <button class="btn ghost small rc-disc-minus" data-id="${id}" ${picked <= 0 ? 'disabled' : ''}>−</button>
+      <span class="rc-disc-n">${picked}</span>
+      <button class="btn ghost small rc-disc-plus" data-id="${id}" ${picked >= me.tokens[id] ? 'disabled' : ''}>＋</button>
+    </div>`;
+  }).join('');
+  return `<div class="rc-modal-bg">
+    <div class="rc-modal paper" role="dialog">
+      <div class="rc-modal-name">チップを ${pending.over} 枚戻してください</div>
+      <div class="rc-disc-list">${rows}</div>
+      <div class="rc-modal-btns">
+        <button class="btn primary rc-disc-ok" ${total === pending.over ? '' : 'disabled'}>戻す（${total}/${pending.over}）</button>
+      </div>
+    </div>
+  </div>`;
+}
+function regularModal(v, pending) {
+  const choices = pending.choices.map(id => v.regulars.find(r => r.id === id)).filter(Boolean);
+  return `<div class="rc-modal-bg">
+    <div class="rc-modal paper" role="dialog">
+      <div class="rc-modal-name">来てもらう常連さんを選んでください</div>
+      <div class="rc-reg-choices">${choices.map(r => regularHTML(v, r, 'choice', `data-regular="${r.id}"`)).join('')}</div>
+    </div>
+  </div>`;
+}
+
+// ===== 配線 =====
+function wire(root, v, ctx, me, myTurn, pending) {
+  if (!myTurn) return;
+
+  // 銀行のチップ（取る選択）
+  root.querySelectorAll('[data-chip]').forEach(el => {
+    el.onclick = () => { clickChip(v, el.dataset.chip); };
+  });
+  const takeBtn = root.querySelector('.rc-take');
+  if (takeBtn) takeBtn.onclick = () => { const m = takeMove(v); if (m) send(ctx, m); };
+  const clearBtn = root.querySelector('.rc-clear');
+  if (clearBtn) clearBtn.onclick = () => { sel = {}; rerender(); };
+  const passBtn = root.querySelector('.rc-pass');
+  if (passBtn) passBtn.onclick = () => send(ctx, { type: 'pass' });
+
+  // カード・山・予約カードをタップ → モーダル
+  root.querySelectorAll('[data-card]').forEach(el => {
+    el.onclick = () => {
+      const from = el.dataset.card;
+      openCard = from === 'deck' ? { from, tier: Number(el.dataset.tier) }
+        : from === 'market' ? { from, tier: Number(el.dataset.tier), index: Number(el.dataset.index) }
+          : { from, index: Number(el.dataset.index) };
+      rerender();
+    };
+  });
+
+  // モーダルのボタン
+  const bg = root.querySelector('[data-close-modal]');
+  if (bg) bg.onclick = e => { if (e.target === bg) { openCard = null; rerender(); } };
+  const closeBtn = root.querySelector('.rc-close');
+  if (closeBtn) closeBtn.onclick = () => { openCard = null; rerender(); };
+  const buildBtn = root.querySelector('.rc-build');
+  if (buildBtn) buildBtn.onclick = () => {
+    if (!openCard) return;
+    const action = openCard.from === 'reserved'
+      ? { type: 'build', from: 'reserved', index: openCard.index }
+      : { type: 'build', from: 'market', tier: openCard.tier, index: openCard.index };
+    send(ctx, action);
+  };
+  const reserveBtn = root.querySelector('.rc-reserve');
+  if (reserveBtn) reserveBtn.onclick = () => {
+    if (!openCard) return;
+    const action = openCard.from === 'deck'
+      ? { type: 'reserve', tier: openCard.tier, index: 'deck' }
+      : { type: 'reserve', tier: openCard.tier, index: openCard.index };
+    send(ctx, action);
+  };
+
+  // 戻す（discard）
+  root.querySelectorAll('.rc-disc-plus').forEach(b => b.onclick = () => { const id = b.dataset.id; discardSel[id] = (discardSel[id] || 0) + 1; rerender(); });
+  root.querySelectorAll('.rc-disc-minus').forEach(b => b.onclick = () => { const id = b.dataset.id; discardSel[id] = Math.max(0, (discardSel[id] || 0) - 1); if (!discardSel[id]) delete discardSel[id]; rerender(); });
+  const discOk = root.querySelector('.rc-disc-ok');
+  if (discOk) discOk.onclick = () => send(ctx, { type: 'discard', tokens: { ...discardSel } });
+
+  // 常連さんを選ぶ
+  root.querySelectorAll('[data-regular]').forEach(el => el.onclick = () => send(ctx, { type: 'chooseRegular', id: el.dataset.regular }));
+}
+
+function clickChip(v, id) {
+  if (id === spiceId(v)) return;           // スパイスは取れない
+  if (v.bank[id] <= 0) return;
+  const colors = Object.keys(sel);
+  const total = colors.reduce((a, c) => a + sel[c], 0);
+  const has2 = colors.some(c => sel[c] === 2);
+  const cur = sel[id] || 0;
+  if (cur === 0) {
+    if (has2 || total >= 3) return;        // take2中は追加不可・3枚まで
+    sel[id] = 1;
+  } else if (cur === 1) {
+    if (colors.length === 1 && v.bank[id] >= 4) sel[id] = 2; // 同色2枚（4枚以上あるとき）
+    else delete sel[id];
+  } else {
+    delete sel[id];
+  }
+  rerender();
+}
+
+async function send(ctx, action) {
+  // 送ったら選択は閉じる（結果は broadcast で反映）
+  sel = {}; openCard = null; discardSel = {};
+  const res = await ctx.send(action);
+  if (res && res.error) rerender(); // エラー時は元の画面に戻す（toast は基盤が出す）
 }
