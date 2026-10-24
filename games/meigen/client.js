@@ -34,7 +34,7 @@ function scheduleDraft(ctx) {
 export function render(root, v, ctx) {
   last = { root, v, ctx };
   const fromLocal = localPaint; localPaint = false;
-  if (!fromLocal) playSound(v, ctx);
+  if (!fromLocal) { playSound(v, ctx); speakReveal(v, ctx); }
 
   const { esc } = ctx;
   const isPlayer = ctx.role === 'player';
@@ -448,4 +448,30 @@ function playSound(v, ctx) {
   else if (v.phase === 'judge' && v.revealed != null && p.revealed != null && v.revealed > p.revealed) snd = 'flip'; // 1枚めくった
   else if (subCount(v) > subCount(p)) snd = 'ready';
   if (snd) ctx.sound(snd);
+}
+
+// ---------- 読み上げ（お題・めくった短冊・選ばれた迷言を声で読む） ----------
+// フレーズごとに高さを 0.9〜1.3 でランダムに少し変える（面白さのため）
+const rndPitch = () => 0.9 + Math.random() * 0.4;
+function speakReveal(v, ctx) {
+  if (!ctx.speak) return;
+  const p = ctx.prev;
+  if (!p) return;
+  // 1) 作成が始まったとき：お題
+  if (p.phase !== 'compose' && v.phase === 'compose' && v.prompt) {
+    ctx.speak(`お題。${v.prompt}`);
+    return;
+  }
+  // 2) 短冊が1枚めくられたとき：そのフレーズ（全部めくるは読まない）
+  if (v.phase === 'judge' && v.revealMode === 'one'
+      && v.revealed != null && p.revealed != null && v.revealed === p.revealed + 1) {
+    const ph = (v.phrases || []).find(x => x.pos === v.revealed - 1 && 'text' in x);
+    if (ph) ctx.speak(ph.text, { pitch: rndPitch() });
+    return;
+  }
+  // 3) 発表のとき：選ばれたフレーズ
+  if (p.phase !== 'result' && v.phase === 'result' && !v.flow && v.pickId) {
+    const picked = (v.results || []).find(r => r.picked);
+    if (picked) ctx.speak(`選ばれたのは、${picked.text}`, { pitch: rndPitch() });
+  }
 }

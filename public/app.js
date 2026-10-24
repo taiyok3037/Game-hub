@@ -3,6 +3,7 @@
 //  ゲームごとの画面は /games/<id>/client.js の render() に任せる
 // =============================================================
 import { play as soundPlay, setMuted, isMuted } from '/lib/sound.js';
+import * as speech from '/lib/speech.js';
 
 const socket = io();
 const $ = s => document.querySelector(s);
@@ -312,6 +313,32 @@ $('#mute-btn').addEventListener('click', () => {
   if (!isMuted()) sound('ready'); // オンにしたら確認音
 });
 refreshMuteBtn();
+
+// ---------- 読み上げ切替ボタン（迷言などの発表を声で読む） ----------
+// 日本語の声が使えないブラウザではボタン自体を出さない。既定はオフ。
+// スピーカーではなく「吹き出し＋声の線」のアイコン（ミュート用スピーカーと区別するため）
+const TTS_BUBBLE = '<path d="M20 4H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3v4l5-4h8a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2z"></path>';
+const TTS_ON = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TTS_BUBBLE}<line x1="8" y1="8.5" x2="8" y2="12.5"></line><line x1="12" y1="7.5" x2="12" y2="13.5"></line><line x1="16" y1="8.5" x2="16" y2="12.5"></line></svg>`;
+const TTS_OFF = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${TTS_BUBBLE}<line x1="4" y1="3.5" x2="20" y2="19.5"></line></svg>`;
+function refreshTtsBtn() {
+  const btn = $('#tts-btn');
+  if (!btn) return;
+  const on = speech.isEnabled();
+  btn.innerHTML = on ? TTS_ON : TTS_OFF;
+  btn.setAttribute('aria-label', on ? '読み上げオン' : '読み上げオフ');
+  btn.setAttribute('aria-pressed', String(on));
+}
+{
+  const btn = $('#tts-btn');
+  if (btn && speech.isAvailable()) {
+    btn.hidden = false;
+    btn.addEventListener('click', () => {
+      speech.setEnabled(!speech.isEnabled());
+      refreshTtsBtn();
+    });
+    refreshTtsBtn();
+  }
+}
 
 function show(name) {
   currentScreen = name;
@@ -752,6 +779,7 @@ async function renderGame(r) {
     esc,
     toast,
     sound,
+    speak: (text, opts) => { if (!isMuted()) speech.speak(text, opts); }, // 読み上げ（オフ・非対応・全体ミュート中は何もしない）
     send: async action => {
       const res = await call('game:action', action);
       if (res.error) toast(res.error);
