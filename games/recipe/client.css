@@ -1,0 +1,94 @@
+/* ===== 喫茶店のレシピ帳 ===== */
+.rc .g-main { min-width: 0; }
+.rc-felt { display: grid; gap: 10px; }
+.rc-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 10px; }
+.rc-label { font-size: 12px; font-weight: 900; color: var(--felt-ink, #f2e8d8); opacity: .85; }
+.rc-timer { flex-shrink: 0; }
+
+/* ---- 材料アイコン ---- */
+.rc-ico { width: 20px; height: 20px; flex-shrink: 0; fill: var(--ic); stroke: var(--is); stroke-width: 1; stroke-linejoin: round; }
+.rc-ico.sm { width: 14px; height: 14px; }
+
+/* ---- 常連さん ---- */
+.rc-regulars-wrap { min-width: 0; }
+.rc-regulars { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.rc-regular {
+  background: #fdf6e8; border: 1px solid var(--paper-line); border-radius: 8px;
+  padding: 5px 7px; min-width: 72px; text-align: center; box-shadow: 0 2px 0 rgba(0,0,0,.18);
+}
+.rc-reg-pts { font-family: var(--font-title); font-weight: 700; color: var(--red); font-size: 15px; }
+.rc-reg-name { font-size: 10px; color: var(--ink-soft); line-height: 1.15; margin: 1px 0 3px; }
+.rc-reg-needs { display: flex; justify-content: center; gap: 4px; }
+.rc-need, .rc-cost-one, .rc-need-n, .rc-cost-n { display: inline-flex; align-items: center; }
+.rc-need-n, .rc-cost-n { font-size: 11px; font-weight: 900; margin-left: 1px; }
+
+/* ---- 場（カードの行）---- */
+.rc-board { display: grid; gap: 8px; }
+.rc-row { display: flex; gap: 6px; align-items: stretch; }
+.rc-deck { flex-shrink: 0; }
+.rc-face { display: grid; grid-template-columns: repeat(4, var(--card-w)); gap: 6px; flex: 1; }
+
+/* ---- カード ---- */
+:root { --card-w: 64px; }
+.rc-card {
+  width: var(--card-w); min-height: 92px; box-sizing: border-box;
+  background: var(--paper-light); border: 2px solid var(--paper-line); border-radius: 8px;
+  display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 2px 0 rgba(0,0,0,.2);
+}
+.rc-card.empty { background: rgba(255,255,255,.06); border-style: dashed; box-shadow: none; }
+.rc-card-band {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 3px 5px; min-height: 22px;
+}
+.rc-card.tier1 .rc-card-band { background: #d8c09a; }
+.rc-card.tier2 .rc-card-band { background: #3f6b4a; }
+.rc-card.tier3 .rc-card-band { background: #8a3b3b; }
+.rc-pts { font-family: var(--font-title); font-weight: 700; font-size: 15px; line-height: 1; }
+.rc-card.tier1 .rc-pts { color: #3a2414; }
+.rc-card.tier2 .rc-pts, .rc-card.tier3 .rc-pts { color: #fff; }
+.rc-card-bonus { display: inline-flex; background: rgba(255,255,255,.85); border-radius: 50%; padding: 1px; }
+.rc-card-name {
+  flex: 1; padding: 4px 5px; font-size: 11px; font-weight: 700; line-height: 1.2;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.rc-cost { display: flex; flex-wrap: wrap; gap: 2px 5px; padding: 4px 5px; border-top: 1px dashed var(--paper-line); }
+.rc-card.buildable { border-color: var(--gold); outline: 2px solid var(--gold); }
+
+/* 裏向き（山）*/
+.rc-card.back {
+  background: var(--card-back, #5b3a24); color: #fff; align-items: center; justify-content: center;
+  text-align: center; gap: 3px;
+  background-image: repeating-linear-gradient(45deg, rgba(255,255,255,.1) 0 6px, transparent 6px 12px);
+}
+.rc-card.back.empty { background: rgba(255,255,255,.06); color: var(--ink-soft); background-image: none; }
+.rc-back-name { font-family: var(--font-title); font-weight: 700; font-size: 11px; }
+.rc-back-count { font-size: 10px; opacity: .9; }
+
+/* ---- 銀行のチップ ---- */
+.rc-bank { display: flex; flex-wrap: wrap; gap: 8px; }
+.rc-chip {
+  width: 44px; height: 44px; border-radius: 50%; background: #fdf6e8;
+  border: 2px solid var(--paper-line); display: flex; flex-direction: column; align-items: center; justify-content: center;
+  box-shadow: 0 2px 0 rgba(0,0,0,.2); position: relative;
+}
+.rc-chip .rc-ico { width: 20px; height: 20px; }
+.rc-chip-n { font-size: 11px; font-weight: 900; line-height: 1; margin-top: 1px; color: var(--ink); }
+.rc-chip.spice { border-color: #7b4fa0; }
+.rc-chip.empty { opacity: .4; }
+
+/* ---- プレイヤー欄（最小・項目4で作り込む）---- */
+.rc-side { display: grid; gap: 6px; }
+.rc-pcard {
+  display: flex; justify-content: space-between; align-items: center;
+  background: #fffdf7; border: 1px solid var(--paper-line); border-radius: 8px; padding: 8px 10px;
+}
+.rc-pcard.turn { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; }
+.rc-pcard.me .rc-pname { font-weight: 900; }
+.rc-ppts { font-weight: 900; }
+
+/* ---- 広い画面ではカードを大きく ---- */
+@media (min-width: 760px) {
+  :root { --card-w: 86px; }
+  .rc-card { min-height: 116px; }
+  .rc-card-name { font-size: 12px; }
+}
