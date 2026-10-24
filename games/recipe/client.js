@@ -81,20 +81,40 @@ function payPlan(v, me, card) {
 
 // ===== カード・チップの部品 =====
 const TIER_CLASS = { 1: 'tier1', 2: 'tier2', 3: 'tier3' };
-function costHTML(v, card) {
+// コスト欄。me があれば各材料の丸に「使える数（割引＋チップ）で足りているか」を記号で出す
+//  足りている→✓、足りない→不足数を赤で（色だけに頼らず、✓と数字の形で区別できる）
+function costHTML(v, card, me) {
   const cost = card.cost || {};
-  return `<div class="rc-cost">${ingOrder(v).filter(id => cost[id] > 0).map(id =>
-    `<span class="rc-cost-one">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span></span>`).join('')}</div>`;
+  return `<div class="rc-cost">${ingOrder(v).filter(id => cost[id] > 0).map(id => {
+    let mark = '';
+    if (me) {
+      const use = (me.bonus[id] || 0) + (me.tokens[id] || 0);
+      mark = use >= cost[id]
+        ? '<span class="rc-cmark ok" aria-label="足りている">✓</span>'
+        : `<span class="rc-cmark short" aria-label="あと${cost[id] - use}">${cost[id] - use}</span>`;
+    }
+    return `<span class="rc-cost-one">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span>${mark}</span>`;
+  }).join('')}</div>`;
 }
-function cardHTML(v, card, { buildable = false, tap = '' } = {}) {
+// 作れるか・足りないか（右下の小さな印）。作れないカードを薄くせず、不足数「あとN」を出す
+function affordFoot(v, me, card) {
+  const pp = payPlan(v, me, card);
+  const lack = pp.spice - (me.tokens[spiceId(v)] || 0); // スパイスを使っても足りない数
+  return lack <= 0
+    ? '<div class="rc-card-foot ok">✓作れる</div>'
+    : `<div class="rc-card-foot short">あと${lack}</div>`;
+}
+function cardHTML(v, card, { buildable = false, tap = '', me = null } = {}) {
   if (!card) return `<div class="rc-card empty" aria-hidden="true"></div>`;
-  return `<div class="rc-card ${TIER_CLASS[card.tier]} ${buildable ? 'buildable' : ''}" ${tap}>
+  const afford = me ? payPlan(v, me, card).ok : false;
+  return `<div class="rc-card ${TIER_CLASS[card.tier]} ${(buildable || afford) ? 'buildable' : ''}" ${tap}>
     <div class="rc-card-band">
       ${card.points ? `<span class="rc-pts">${card.points}</span>` : '<span></span>'}
       <span class="rc-card-bonus">${ingIcon(v, card.bonus)}</span>
     </div>
     <div class="rc-card-name">${esc0(card.name)}</div>
-    ${costHTML(v, card)}
+    ${costHTML(v, card, me)}
+    ${me ? affordFoot(v, me, card) : ''}
   </div>`;
 }
 function deckPile(v, tier, count, tap = '') {
@@ -166,7 +186,7 @@ export function render(root, v, ctx) {
     const face = (v.market[idx] || []).map((c, i) => {
       const buildable = myTurn && !pending && c && payPlan(v, me, c).ok;
       const tap = (myTurn && !pending && c) ? `data-card="market" data-tier="${tier}" data-index="${i}"` : '';
-      return cardHTML(v, c, { buildable, tap });
+      return cardHTML(v, c, { buildable, tap, me });
     }).join('');
     const deckTap = (myTurn && !pending && v.deckCounts[idx] > 0 && me.reservedCount < v.maxReserve) ? `data-card="deck" data-tier="${tier}"` : '';
     return `<div class="rc-row">
@@ -244,7 +264,7 @@ function playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts) {
     if (r.card) {
       const canBuildIt = isMe && myTurn && !pending && payPlan(v, me, r.card).ok;
       const tap = (isMe && myTurn && !pending) ? `data-card="reserved" data-index="${i}"` : '';
-      return cardHTML(v, r.card, { buildable: canBuildIt, tap });
+      return cardHTML(v, r.card, { buildable: canBuildIt, tap, me: isMe ? me : null });
     }
     return deckPile(v, r.tier, '', ''); // 他人の山からの予約は裏向き
   }).join('');
