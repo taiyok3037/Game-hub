@@ -42,6 +42,7 @@ const cov = {
   reveal: 0, revealAll: 0, pickTooEarly: 0,
   ready: 0, disconnect: 0, reconnect: 0, leave: 0,
   like: 0, likeSpectator: 0,
+  awardOshi: 0, awardMeisaku: 0, awardChaos: 0, awardBlank: 0, awardTaisaku: 0, awardHitokoto: 0, awardWin: 0,
   games: 0, flows: 0, overByTarget: 0, overByFew: 0,
 };
 
@@ -156,6 +157,8 @@ function randomPhrase(state, seat) {
     if (rnd() < 0.5) tokens.push(pick(cards));
     else tokens.push({ t: 'chip', text: pick(v.connectors) });
   }
+  // ときどき白紙カードも入れる（残りがある分だけ・表彰式「白紙の魔術師」や消費テストのため）
+  if ((v.myBlanksLeft || 0) > 0 && rnd() < 0.3) tokens.push({ t: 'blank', text: pick(['あ', '推し', '神', '卍', 'ｗ']) });
   // カード id の重複を除く（submit は重複カードを弾くため）
   const seen = new Set();
   const out = [];
@@ -236,6 +239,48 @@ function likeTests() {
   for (let k = 0; k < 8; k++) { const rr = game.action(state, 'spec-burst', { type: 'like', pos: otherPos }, room()); if (rr && rr.silent) silent++; }
   assert(silent >= 1, '連打制限（1秒5回）が効いていない');
   console.log('  いいねの決定的テスト OK');
+}
+
+// 表彰式の賞を、サーバーとは別に素直に計算する（突き合わせ用）。各賞 → 受賞 seat の集合
+function expectedAwards(state) {
+  const subs = state.allSubs;
+  const sumBy = fn => { const m = {}; for (const s of subs) m[s.seat] = (m[s.seat] || 0) + fn(s); return m; };
+  const topSeats = m => { const vals = Object.values(m); const max = vals.length ? Math.max(...vals) : 0; return max > 0 ? Object.keys(m).filter(k => m[k] === max).map(Number) : []; };
+  const maxOf = fn => subs.length ? Math.max(...subs.map(fn)) : 0;
+  const out = {};
+  out.oshi = topSeats(sumBy(s => s.likes));
+  const maxLikes = maxOf(s => s.likes);
+  out.meisaku = maxLikes > 0 ? [...new Set(subs.filter(s => s.likes === maxLikes).map(s => s.seat))] : [];
+  out.chaos = topSeats(sumBy(s => s.chaos));
+  out.blank = topSeats(sumBy(s => (s.picked && s.blanks > 0) ? 1 : 0));
+  const maxLen = maxOf(s => s.length);
+  out.taisaku = maxLen > 0 ? [...new Set(subs.filter(s => s.length === maxLen).map(s => s.seat))] : [];
+  const picked = subs.filter(s => s.picked);
+  const minLen = picked.length ? Math.min(...picked.map(s => s.length)) : 0;
+  out.hitokoto = picked.length ? [...new Set(picked.filter(s => s.length === minLen).map(s => s.seat))] : [];
+  out.win = state.winner != null ? [state.winner] : [];
+  return out;
+}
+
+// over の view.awards と、素直な計算を突き合わせる
+function verifyAwards(state, players) {
+  const exp = expectedAwards(state);
+  const v = game.view(state, players[0].id);
+  const awards = v.awards || [];
+  const bySeat = id => players.findIndex(p => p.id === id);
+  const sorted = a => a.slice().sort((x, y) => x - y);
+  const byKey = {};
+  for (const a of awards) byKey[a.key] = sorted(a.winners.map(w => bySeat(w.id)));
+  for (const key of Object.keys(exp)) {
+    const want = sorted(exp[key]);
+    const got = byKey[key] || [];
+    assert(JSON.stringify(want) === JSON.stringify(got), `表彰式 ${key} 不一致: want ${JSON.stringify(want)} got ${JSON.stringify(got)}`);
+    if (want.length) cov['award' + key[0].toUpperCase() + key.slice(1)]++;
+  }
+  // 賞のキーは想定内だけ
+  for (const a of awards) assert(['oshi','meisaku','chaos','blank','taisaku','hitokoto','win'].includes(a.key), `未知の賞: ${a.key}`);
+  // 「今日の選ばれた迷言」一覧は picks と同数
+  assert((v.pickedList || []).length === state.picks.length, `pickedList の数が picks と不一致: ${(v.pickedList||[]).length} != ${state.picks.length}`);
 }
 
 function runOne(n) {
@@ -433,6 +478,7 @@ function runOne(n) {
   if (state.winner !== null) {
     assert(!state.left[state.winner], '勝者が退席者');
   }
+  verifyAwards(state, players); // 表彰式の賞を突き合わせる
   cov.games++;
 }
 
@@ -453,5 +499,7 @@ assert(cov.chooseTheme && cov.timeoutTheme && cov.timeoutCompose, 'テーマ選�
 assert(cov.draft && cov.submit && cov.unsubmit && cov.pick && cov.forcePick, '作成系の網羅不足');
 assert(cov.ready && cov.disconnect && cov.reconnect && cov.leave, '準備OK/切断/退席の網羅不足');
 assert(cov.like && cov.likeSpectator, 'いいね（参加者・観戦者）の網羅不足');
+assert(cov.awardWin && cov.awardMeisaku && cov.awardChaos && cov.awardTaisaku && cov.awardOshi, '表彰式（主要な賞）の網羅不足');
+assert(cov.awardBlank && cov.awardHitokoto, '表彰式（白紙の魔術師・ひとことで勝負賞）の網羅不足');
 assert(cov.flows > 0, '流れたラウンドが一度もない');
 console.log(`\n✅ 全 ${cov.games} ゲーム 通過（${ms}ms）`);

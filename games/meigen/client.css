@@ -173,6 +173,33 @@ button.mg-like:active { transform: translateY(1px); }
   background: var(--gold); border-radius: 999px; padding: 3px 8px; white-space: nowrap;
 }
 
+/* ---- 表彰式 ---- */
+.mg-ceremony { border-radius: 12px; padding: 16px; display: grid; gap: 12px; }
+.mg-ceremony-head { text-align: center; font-family: var(--font-title); font-size: 22px; font-weight: 700; }
+.mg-awards { display: grid; gap: 10px; }
+.mg-award {
+  text-align: center; padding: 12px; border-radius: 10px;
+  background: #fffdf7; border: 1px solid var(--paper-line);
+}
+.mg-award-title { font-size: 13px; font-weight: 900; color: var(--ink-soft); letter-spacing: .04em; }
+.mg-award-winner { font-family: var(--font-title); font-size: 20px; font-weight: 700; margin-top: 2px; word-break: break-word; }
+.mg-award-work { font-size: 12px; color: var(--ink-soft); margin-top: 6px; word-break: break-word; }
+.mg-award-work-meta { display: block; font-size: 11px; opacity: .8; }
+.mg-award.win {
+  background: #fff3d6; border-color: var(--gold); box-shadow: 0 3px 0 rgba(0,0,0,.15);
+}
+.mg-award.win .mg-award-winner { font-size: 26px; color: var(--red); }
+.mg-award-in { animation: mg-award-pop .4s ease; }
+@keyframes mg-award-pop { from { opacity: 0; transform: translateY(8px) scale(.96); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .mg-award-in { animation: none; } }
+.mg-ceremony-win { text-align: center; font-family: var(--font-title); font-size: 24px; font-weight: 700; color: var(--red); }
+.mg-ceremony-picks { border-top: 2px dashed var(--paper-line); padding-top: 10px; }
+.mg-ceremony-picks h3 { margin: 0 0 6px; font-size: 14px; }
+.mg-ceremony-picks ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.mg-ceremony-picks li { display: flex; flex-direction: column; gap: 2px; background: #fffdf7; border: 1px solid var(--paper-line); border-radius: 8px; padding: 8px 10px; }
+.mg-ceremony-picks .mg-pick-text { font-family: var(--font-title); font-weight: 700; word-break: break-word; }
+.mg-ceremony-picks .mg-pick-meta { font-size: 11px; color: var(--ink-soft); }
+
 /* ---- 準備OK ---- */
 .mg-ready { border-top: 2px dashed var(--paper-line); padding-top: 10px; display: grid; gap: 8px; }
 .mg-ready-head { font-weight: 900; }

@@ -35,6 +35,9 @@ let judgePick = null;    // 親が仮選択した pos
 let judgeKey = null;
 let draftTimer = null;
 let localPaint = false;  // ローカル再描画か（効果音を鳴らさない）
+let ceremonyKey = null;  // 表彰式の進行（この over の間だけ保つ）
+let ceremonyShown = 0;   // 何個の賞まで出したか
+let ceremonyTimer = null;
 
 function rerender() { if (last) { localPaint = true; render(last.root, last.v, last.ctx); } }
 
@@ -147,8 +150,10 @@ export function render(root, v, ctx) {
       </div>`;
   } else if (v.phase === 'judge') {
     center = judgeUI(v, ctx, { isParent });
-  } else if (v.phase === 'result' || v.phase === 'over') {
+  } else if (v.phase === 'result') {
     center = resultUI(v, ctx, { name, isPlayer, isParent });
+  } else if (v.phase === 'over') {
+    center = ceremonyUI(v, ctx, { name });
   }
 
   // ---- 右側（得点・履歴・記録） ----
@@ -310,14 +315,77 @@ function resultUI(v, ctx, { name, isPlayer, isParent }) {
       </span>
     </li>`;
   }).join('');
-  const winBanner = v.phase === 'over'
-    ? `<div class="mg-winner">🏆 ${v.winnerId === ctx.me ? 'あなた' : name(v.winnerId)} さんの勝ち！</div>`
-    : '';
   return `
     <div class="mg-result paper">
-      ${winBanner}
       <ul class="mg-result-list">${list}</ul>
-      ${v.phase === 'result' ? readyPanel(v, ctx, name) : ''}
+      ${readyPanel(v, ctx, name)}
+    </div>`;
+}
+
+// ---------- 表彰式（ゲーム終了時） ----------
+function ceremonyUI(v, ctx, { name }) {
+  const { esc } = ctx;
+  const awards = v.awards || [];
+  const reduced = typeof window !== 'undefined' && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const okey = `over:${v.round}:${v.winnerId || ''}`;
+  if (ceremonyKey !== okey) { // この over に初めて入った：演出を仕込む
+    ceremonyKey = okey;
+    clearTimeout(ceremonyTimer);
+    if (reduced) { ceremonyShown = awards.length; ctx.sound('win'); } // まとめて表示
+    else { ceremonyShown = 0; scheduleCeremony(awards, ctx); }
+  }
+  const shown = Math.min(ceremonyShown, awards.length);
+  const cards = awards.slice(0, shown).map(a => awardCard(a, ctx)).join('');
+  const done = shown >= awards.length;
+  const winner = v.winnerId === ctx.me ? 'あなた' : `${name(v.winnerId)} さん`;
+  return `
+    <div class="mg-ceremony paper">
+      <div class="mg-ceremony-head">🎉 表彰式</div>
+      <div class="mg-awards">${cards || '<p class="center muted">結果を集計中…</p>'}</div>
+      ${done ? '' : '<button class="btn ghost small mg-skip">全部表示</button>'}
+      ${done ? `<div class="mg-ceremony-win">🏆 ${winner} の優勝！</div>` : ''}
+      ${done ? ceremonyPicks(v, esc) : ''}
+    </div>`;
+}
+
+function awardCard(a, ctx) {
+  const { esc } = ctx;
+  const big = a.key === 'win';
+  const names = (a.winners || []).map(w => esc(w.name)).join('・');
+  const work = (a.works || []).map(w =>
+    `<div class="mg-award-work">「${esc(w.text)}」<span class="mg-award-work-meta">${esc(w.authorName)}／${esc(w.prompt)}${w.likes ? `　♥${w.likes}` : ''}</span></div>`).join('');
+  return `
+    <div class="mg-award ${big ? 'win' : ''} mg-award-in">
+      <div class="mg-award-title">${big ? '🏆 ' : ''}${esc(a.title)}</div>
+      <div class="mg-award-winner">${names}</div>
+      ${work}
+    </div>`;
+}
+
+// 1.2秒おきに賞を1つずつ出す（各賞で ready 音・優勝で win 音）
+function scheduleCeremony(awards, ctx) {
+  clearTimeout(ceremonyTimer);
+  if (ceremonyShown >= awards.length) return;
+  ceremonyTimer = setTimeout(() => {
+    ceremonyShown++;
+    const a = awards[ceremonyShown - 1];
+    ctx.sound(a && a.key === 'win' ? 'win' : 'ready');
+    scheduleCeremony(awards, ctx);
+    rerender();
+  }, 1200);
+}
+
+function ceremonyPicks(v, esc) {
+  const list = v.pickedList || [];
+  if (!list.length) return '';
+  return `
+    <div class="mg-ceremony-picks">
+      <h3>今日の選ばれた迷言</h3>
+      <ul>${list.map(p => `
+        <li>
+          <span class="mg-pick-text">${esc(p.text)}</span>
+          <span class="mg-pick-meta">R${p.round}・${esc(p.prompt)}／${esc(p.authorName)}　♥${p.likes}</span>
+        </li>`).join('')}</ul>
     </div>`;
 }
 
@@ -458,6 +526,15 @@ function wireEvents(root, v, ctx, { previewOf }) {
     b.onclick = e => { e.stopPropagation(); ctx.send({ type: 'like', pos: Number(b.dataset.like) }); };
   });
 
+  // 表彰式：演出をスキップして全部表示
+  const skip = root.querySelector('.mg-skip');
+  if (skip) skip.onclick = () => {
+    clearTimeout(ceremonyTimer);
+    ceremonyShown = (v.awards || []).length;
+    ctx.sound('win');
+    rerender();
+  };
+
   // 準備OK
   const next = root.querySelector('.mg-next');
   if (next) next.onclick = () => { next.disabled = true; ctx.send({ type: 'next', on: !(v.readyIds || []).includes(ctx.me) }); };
@@ -469,8 +546,8 @@ function playSound(v, ctx) {
   if (!p) return;
   let snd = null;
   const subCount = x => (x.players || []).filter(pl => pl.submitted).length;
-  if (p.phase !== 'over' && v.phase === 'over') snd = 'win';
-  else if (v.phase === 'result' && p.phase !== 'result' && !v.flow && v.pickId) snd = (v.pickId === ctx.me ? 'win' : 'trick');
+  // over（表彰式）の音は ceremonyUI 側で鳴らす（各賞 ready・優勝 win）ので、ここでは鳴らさない
+  if (v.phase === 'result' && p.phase !== 'result' && !v.flow && v.pickId) snd = (v.pickId === ctx.me ? 'win' : 'trick');
   else if (v.phase === 'judge' && p.phase !== 'judge') snd = 'flip';            // 選考開始
   else if (v.phase === 'judge' && v.revealed != null && p.revealed != null && v.revealed > p.revealed) snd = 'flip'; // 1枚めくった
   else if (subCount(v) > subCount(p)) snd = 'ready';
