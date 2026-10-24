@@ -220,7 +220,7 @@ export function render(root, v, ctx) {
 
   root.innerHTML = `
     <div class="g-layout rc">
-      <div class="g-main">${felt}</div>
+      <div class="g-main">${felt}${handPanel(v, ctx, me, myTurn, pending)}</div>
       ${side}
     </div>
     ${modalHTML(v, ctx, me, myTurn, pending)}`;
@@ -249,6 +249,70 @@ function actionBar(v, ctx, me, myTurn, pending) {
       ${!canAct ? '<div class="rc-pass-row"><span class="muted">取る・予約・作るができません</span><button class="btn primary small rc-pass">パスする</button></div>' : ''}
     </div>`;
 }
+// ===== 自分の手元パネル（メイン）=====
+// 卓のすぐ下に出す、自分専用の大きなパネル。観戦者・脱落者のときは「今の手番の人」の手元を出す。
+function handPanel(v, ctx, me, myTurn, pending) {
+  const viewerPlaying = me && !me.left;
+  const p = viewerPlaying ? me : (v.players[v.turnSeat] || null);
+  if (!p) return '';
+  const mine = viewerPlaying && p === me;
+  const isMyTurnPanel = mine && myTurn && !v.over;
+  const heading = mine ? 'あなたの手元' : `${esc0(p.name)} の手元`;
+  const target = v.target || 15;
+  const cols = [...ingOrder(v), spiceId(v)]; // 材料5＋スパイス
+  const spice = spiceId(v);
+
+  const th = cols.map(id =>
+    `<th><span class="rc-ing-h">${ingIcon(v, id, 'lg')}<span class="rc-ing-hn">${esc0(nameOf(v, id))}</span></span></th>`).join('');
+  const bonusRow = cols.map(id => id === spice ? '<td class="rc-dash">—</td>' : `<td>${p.bonus[id] || 0}</td>`).join('');
+  const tokRow = cols.map(id => `<td>${p.tokens[id] || 0}</td>`).join('');
+  const useRow = cols.map(id => {
+    const use = id === spice ? (p.tokens[id] || 0) : (p.bonus[id] || 0) + (p.tokens[id] || 0);
+    return `<td class="rc-use-n">${use}</td>`;
+  }).join('');
+
+  const total = p.tokenCount != null ? p.tokenCount : cols.reduce((a, id) => a + (p.tokens[id] || 0), 0);
+  const totCls = total >= v.handMax ? 'full' : total >= v.handMax - 2 ? 'near' : '';
+
+  const reserved = (p.reserved || []).map((r, i) => {
+    if (r.card) {
+      const canBuildIt = isMyTurnPanel && !pending && payPlan(v, p, r.card).ok;
+      const tap = (isMyTurnPanel && !pending) ? `data-card="reserved" data-index="${i}"` : '';
+      return cardHTML(v, r.card, { buildable: canBuildIt, tap, me: p });
+    }
+    return deckPile(v, r.tier, '', ''); // 伏せられた予約（山から・seesAll=false）は裏向き
+  }).join('');
+  const regs = (p.regulars || []).map(r =>
+    `<span class="rc-hand-reg" title="${esc0(r.name)}">${esc0(r.name)} +${r.points}</span>`).join('') || '<span class="muted">なし</span>';
+
+  return `
+    <section class="rc-hand paper ${isMyTurnPanel ? 'turn' : ''}">
+      <div class="rc-hand-head">
+        <div class="rc-hand-id">
+          <span class="rc-hand-title">${heading}</span>
+          <span class="rc-hand-score"><span class="rc-hand-pts">${p.points}</span><span class="rc-hand-target">/ ${target}点</span></span>
+        </div>
+        <div class="rc-hand-bar" aria-hidden="true"><span style="width:${Math.min(100, (p.points / target) * 100)}%"></span></div>
+        <div class="rc-hand-meta">
+          <span class="rc-hand-reserve">予約 ${p.reservedCount} / ${v.maxReserve}</span>
+          <span class="rc-hand-regs">常連 ${regs}</span>
+        </div>
+      </div>
+      <div class="rc-hand-tablewrap">
+        <table class="rc-ingtable">
+          <thead><tr><th class="rc-rowlabel" aria-hidden="true"></th>${th}</tr></thead>
+          <tbody>
+            <tr><th class="rc-rowlabel">割引</th>${bonusRow}</tr>
+            <tr><th class="rc-rowlabel">チップ</th>${tokRow}</tr>
+            <tr class="rc-row-use"><th class="rc-rowlabel">使える数</th>${useRow}</tr>
+          </tbody>
+        </table>
+        <div class="rc-hand-total ${totCls}">手元のチップ <strong>${total} / ${v.handMax}</strong></div>
+      </div>
+      ${reserved ? `<div class="rc-hand-reserved"><span class="rc-plabel">予約したカード</span><div class="rc-hand-rcards">${reserved}</div></div>` : ''}
+    </section>`;
+}
+
 // プレイヤー1人の欄
 function playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts) {
   if (!p) return '';
