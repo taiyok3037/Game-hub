@@ -4,7 +4,7 @@
 
 ## 構成
 - `server.js` … 共通基盤。ルーム（4文字コード）・ロビー・再接続・退出処理・`games/` の自動読み込み。**ゲーム固有の処理は書かない**
-- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数、`lib/timer.js` に締め切りタイマー表示（`timerHTML`）、`chat.js` にルームチャット。クイックリアクションの定型文は `lib/reactions.js`（サーバー共通・`/lib/reactions.js` で配信）
+- `public/` … 共通画面（ホーム→ロビー→ゲーム）。`style.css` に卓上カフェ風テーマと共通部品、`lib/cards.js` にトランプ描画関数、`lib/timer.js` に締め切りタイマー表示（`timerHTML`）、`lib/sound.js` に効果音、`lib/speech.js` に読み上げ（音声合成）、`chat.js` にルームチャット。クイックリアクションの定型文は `lib/reactions.js`（サーバー共通・`/lib/reactions.js` で配信）
 - `games/<id>/server.js` … ルール。`setup(players, options) / action / view / isOver`（任意で `onLeave / turnOf / onConnectionChange / isOut / spectatorView / options / deadline / onTimeout`）を持つ
 - `games/<id>/client.js` … `export function render(root, view, ctx)`。毎回まるごと描き直す
 - `games/<id>/client.css` … そのゲームだけの見た目
@@ -23,11 +23,15 @@
 - 紙色の面（パネルや結果パネルなど）には `.paper` を付ける（上に置くボタンの色が自動で紙向けに切り替わる。`.btn.ghost` は木目・フェルト用の明るい色なので、紙の上では `.paper` がないと見えにくい）
 - 画面はスマホ幅（390px）で崩れないこと。PCではチャット列が開いていても崩れないこと（どの幅でも横スクロールを出さない）
 - UIの文言は日本語
+- ユーザーへの返答・報告・要約はすべて日本語で書く
+- 仕様書がある作業では、ユーザーに質問する前に仕様書を確認する（仕様に書いてあることは質問しない）
 
 ## 基盤の機能（任意で使う）
 - **ゲーム設定（options）**：`options: [{ key, label, type, min/max or choices, default, showIf }]` を宣言すると、ロビーでホストが変更できる（`type` は `int` / `select` / `bool`、`choices` は関数でもよい、`showIf: { key, equals }` で出し分け）。現在値は `setup(players, options)` に渡る。サーバーが型と範囲を検証し、変更すると全員の準備OKが外れる。設定はロビーに戻っても維持される
 - **タイマー（deadline / onTimeout）**：`deadline(state)` が締め切りの時刻（ms・サーバー時計）を返すと、基盤が締め切りで `onTimeout(state, room)` を呼ぶ。画面は `/lib/timer.js` の `timerHTML(deadline, ctx)` で残り時間を出せる（`ctx.clockOffset` で時計のずれを補正・残り5秒から `tick` 音）
-- **broadcast の抑止**：`action` が `{ silent: true }` を返すと、その操作を全員に配信しない（本人だけで完結する下書き保存などに使う）
+- **broadcast の抑止**：`action` が `{ silent: true }` を返すと、その操作を全員に配信しない（本人だけで完結する下書き保存や、連打制限で無視した操作などに使う）
+- **観戦者の操作（spectatorActions）**：ゲームが `spectatorActions: ['like']` のように宣言すると、その種類の `action` だけは観戦者・退席者からも受け付ける（`action(state, playerId, …)` の `playerId` に観戦者の id が渡る。既定では観戦者の操作はすべて拒否）。受け取る側で `seat === -1`（観戦者）を許し、隠し情報（作者など）を返さないよう気をつける
+- **読み上げ（`/lib/speech.js`）**：ブラウザの音声合成でテキストを読む、完全にクライアント側だけの機能。ゲームの `client.js` からは `ctx.speak(text, { pitch })` で読み上げる（既定オン・`localStorage` の `gamehub-tts` に保存。効果音の全体ミュート中・日本語の声が無いブラウザでは何もしない）。オン/オフのトグルはゲームバーに自動で出る（日本語の声が使えるときだけ）。新しく読むと前の読み上げは止まる
 
 ## 確認方法
 - 開発中は `npm run dev` で起動する（保存で自動再起動。サーバーのコードやルートを変えたら再起動が要るため）
