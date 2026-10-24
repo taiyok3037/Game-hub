@@ -20,7 +20,17 @@ let sel = {};              // 取る選択 { color: 1|2 }
 let openCard = null;       // 開いているカードパネル { from:'market'|'reserved'|'deck', tier, index }
 let discardSel = {};       // 戻すチップの選択 { color: n }
 let uiKey = null;          // 手番が変わったら選択を捨てる
-function rerender() { if (store) render(store.root, store.v, store.ctx); }
+let paintLocal = false;    // ローカル再描画か（効果音・演出を出さない）
+function rerender() { if (store) { paintLocal = true; render(store.root, store.v, store.ctx); } }
+
+// サーバー更新のときだけ、last（何が起きたか）に応じて効果音を鳴らす
+const SND = { take: 'ready', build: 'trick', reserve: 'card', regular: 'win', over: 'win' };
+function effects(v, ctx) {
+  const p = ctx.prev;
+  const last = v.last;
+  if (last && (!p || !p.last || p.last.seq !== last.seq) && SND[last.type]) ctx.sound(SND[last.type]);
+  if (v.finalRound && !v.over && (!p || !p.finalRound)) ctx.sound('turn'); // 最終周に入った
+}
 
 // ===== 材料アイコン =====
 const SHAPES = {
@@ -132,10 +142,17 @@ function takeMove(v) {
 
 export function render(root, v, ctx) {
   store = { root, v, ctx };
+  const fromLocal = paintLocal; paintLocal = false;
+  if (!fromLocal) effects(v, ctx);
   esc0 = ctx.esc;
   const me = v.you >= 0 ? v.players[v.you] : null;
   const myTurn = !!ctx.yourTurn && !!me && !v.over;
   const pending = v.pending || null;
+
+  // 演出：直前のサーバー更新で動いた人の欄を光らせ、点が入ったら「+N」を出す
+  const anim = (!fromLocal && v.last && ['take', 'build', 'reserve', 'regular'].includes(v.last.type)) ? v.last : null;
+  const flashId = anim ? (v.players[anim.seat] || {}).id : null;
+  const floatPts = anim && (anim.type === 'build' || anim.type === 'regular') && anim.points > 0 ? anim.points : 0;
 
   // 手番が変わったら選択を捨てる
   const key = `${v.turnSeat}:${v.round}:${v.phase}`;
@@ -162,21 +179,22 @@ export function render(root, v, ctx) {
 
   const felt = `
     <div class="felt rc-felt">
+      ${v.finalRound && !v.over ? '<div class="rc-final-band">最終周です！</div>' : ''}
       <div class="rc-top">
         <div class="rc-regulars-wrap"><div class="rc-label">常連さん</div>${regulars}</div>
-        ${ctx.deadline != null ? `<div class="rc-timer">${timerHTML(ctx.deadline, ctx)}</div>` : ''}
+        ${ctx.deadline != null && !v.over ? `<div class="rc-timer">${timerHTML(ctx.deadline, ctx)}</div>` : ''}
       </div>
       <div class="rc-board">${tierRow(3)}${tierRow(2)}${tierRow(1)}</div>
       <div class="rc-label">材料の銀行</div>
       ${bank}
-      ${actionBar(v, ctx, me, myTurn, pending)}
+      ${v.over ? overPanel(v, ctx) : actionBar(v, ctx, me, myTurn, pending)}
     </div>`;
 
   // プレイヤー欄（自分を先頭・少し大きく）＋記録
   const ps = v.players || [];
   const ordered = v.you >= 0 ? [ps[v.you], ...ps.filter((_, i) => i !== v.you)] : ps;
   const side = `<div class="g-side"><div class="rc-side">
-    ${ordered.map(p => playerPanel(v, ctx, p, me, myTurn, pending)).join('')}
+    ${ordered.map(p => playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts)).join('')}
     <ul class="log rc-log">${(v.log || []).slice().reverse().slice(0, 12).map(l => `<li>${esc0(l)}</li>`).join('')}</ul>
   </div></div>`;
 
@@ -212,9 +230,11 @@ function actionBar(v, ctx, me, myTurn, pending) {
     </div>`;
 }
 // プレイヤー1人の欄
-function playerPanel(v, ctx, p, me, myTurn, pending) {
+function playerPanel(v, ctx, p, me, myTurn, pending, flashId, floatPts) {
   if (!p) return '';
   const isMe = p.id === ctx.me;
+  const flash = p.id === flashId ? 'rc-flash' : '';
+  const float = (p.id === flashId && floatPts) ? `<span class="rc-float">+${floatPts}</span>` : '';
   const target = v.target || 15;
   const tokens = [...ingOrder(v), spiceId(v)].map(id =>
     `<span class="rc-ptok ${(p.tokens[id] || 0) === 0 ? 'zero' : ''}">${ingIcon(v, id, 'sm')}<span class="rc-ptok-n">${p.tokens[id] || 0}</span></span>`).join('');
@@ -232,7 +252,8 @@ function playerPanel(v, ctx, p, me, myTurn, pending) {
     `<span class="rc-preg" title="${esc0(r.name)}">${esc0(r.name)} +${r.points}</span>`).join('');
 
   return `
-    <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${isMe ? 'me' : ''}" data-member-id="${p.id}">
+    <div class="rc-pcard ${p.isTurn ? 'turn' : ''} ${isMe ? 'me' : ''} ${flash}" data-member-id="${p.id}">
+      ${float}
       <div class="rc-phead">
         <span class="rc-pname">${esc0(p.name)}${isMe ? '<span class="rc-you">あなた</span>' : ''}${p.left ? '<span class="rc-left">退席</span>' : ''}</span>
         <span class="rc-ppts">${p.points}<small>点</small></span>
@@ -242,6 +263,22 @@ function playerPanel(v, ctx, p, me, myTurn, pending) {
       <div class="rc-prow"><span class="rc-plabel">割引</span><div class="rc-pbonuses">${bonuses}</div></div>
       ${reserved ? `<div class="rc-prow"><span class="rc-plabel">予約</span><div class="rc-preserved">${reserved}</div></div>` : ''}
       ${regulars ? `<div class="rc-prow"><span class="rc-plabel">常連</span><div class="rc-pregs">${regulars}</div></div>` : ''}
+    </div>`;
+}
+
+// 決着パネル（勝者を大きく・点数一覧）
+function overPanel(v, ctx) {
+  const winnerIds = v.winners || [];
+  const names = (v.players || []).filter(p => winnerIds.includes(p.id)).map(p => p.id === ctx.me ? 'あなた' : esc0(p.name));
+  const rows = (v.players || []).slice().sort((a, b) => b.points - a.points || a.builtCount - b.builtCount).map(p => `
+    <div class="rc-over-row ${winnerIds.includes(p.id) ? 'win' : ''}">
+      <span>${esc0(p.name)}${p.id === ctx.me ? '<span class="rc-you">あなた</span>' : ''}</span>
+      <span class="rc-over-pts">${p.points}点<small>（レシピ${p.builtCount}）</small></span>
+    </div>`).join('');
+  return `
+    <div class="rc-over paper">
+      <div class="rc-over-win">🏆 ${names.join('・') || '—'} の勝ち！</div>
+      <div class="rc-over-list">${rows}</div>
     </div>`;
 }
 
