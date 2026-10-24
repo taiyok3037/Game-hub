@@ -54,7 +54,7 @@ const ingName = id => (INGREDIENTS_META.find(i => i.id === id) || {}).name || id
 function normalizeOptions(o) {
   o = o || {};
   const target = Number.isInteger(o.target) ? Math.min(21, Math.max(10, o.target)) : 15;
-  const turnTime = [30, 60, 90, 0].includes(o.turnTime) ? o.turnTime : 60;
+  const turnTime = [30, 60, 90, 0].includes(o.turnTime) ? o.turnTime : 90;
   return { target, turnTime };
 }
 function turnDeadline(state) {
@@ -228,7 +228,7 @@ module.exports = {
   options: [
     { key: 'target', label: '勝利点', type: 'int', min: 10, max: 21, default: 15 },
     {
-      key: 'turnTime', label: '1ターンの制限時間', type: 'select', default: 60,
+      key: 'turnTime', label: '1ターンの制限時間', type: 'select', default: 90,
       choices: [
         { value: 30, label: '30秒' }, { value: 60, label: '60秒' },
         { value: 90, label: '90秒' }, { value: 0, label: 'なし' },

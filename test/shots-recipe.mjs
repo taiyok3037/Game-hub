@@ -91,30 +91,34 @@ async function act(page) {
   return false;
 }
 
+async function shot(page, name, w, h = 900) { await page.setViewportSize({ width: w, height: h }); await sleep(350); await page.screenshot({ path: path.join(OUT, `${name}.png`) }); console.log('  📸', name); }
+
+// 途中（手元・割引が貯まった頃）の見た目を 4 幅で撮る。host（プレイヤー）側の画面を撮る
+async function shotAll(tag) {
+  for (const w of [1280, 1000, 790, 390]) await shot(hp, `recipe-${tag}${w}`, w, w <= 790 ? 820 : 900);
+  await hp.setViewportSize({ width: 1280, height: 860 }); await sleep(120);
+}
+
 let shotMid = false;
 let turns = 0;
 for (; turns < 400; turns++) {
   if (await hp.$('.rc-over')) break;
+  if (!shotMid && turns > 22) { await shotAll(''); shotMid = true; } // 途中の4幅スクショ
   // 手番のページ（操作UIがある方）を選ぶ
   const page = (await hp.$('.rc-actionbar, .rc-modal-bg')) ? hp : (await gp.$('.rc-actionbar, .rc-modal-bg')) ? gp : null;
   if (!page) { await sleep(120); continue; }
-  if (!shotMid && turns > 10) { // 途中の見た目（手元・割引が貯まった頃）
-    await page.setViewportSize({ width: 1000, height: 900 }); await sleep(250);
-    await page.screenshot({ path: path.join(OUT, 'recipe-mid-1000.png') }); shotMid = true;
-    console.log('  📸 recipe-mid-1000');
-    await page.setViewportSize({ width: 1280, height: 860 }); await sleep(150);
-  }
   try { await act(page); } catch (e) { /* 再描画との競合は無視して次へ */ }
   await sleep(150);
 }
+if (!shotMid) await shotAll(''); // 早く終わってしまったとき用の保険
 console.log('ターン数:', turns, '/ over:', !!(await hp.$('.rc-over')));
 
-async function shot(page, name, w, h = 900) { await page.setViewportSize({ width: w, height: h }); await sleep(350); await page.screenshot({ path: path.join(OUT, `${name}.png`) }); console.log('  📸', name); }
-for (const w of [1280, 1000, 390]) await shot(hp, `recipe-${w}`, w, w === 390 ? 820 : 900);
-
-await hp.setViewportSize({ width: 390, height: 820 }); await sleep(250);
-const ov = await hp.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
-console.log('390px:', ov, ov.sw <= ov.cw + 1 ? 'OK（横スクロールなし）' : '❌ 横スクロールあり');
+// 横スクロール（卓からのはみ出し）が無いかを狭めの幅で確認
+for (const w of [790, 390]) {
+  await hp.setViewportSize({ width: w, height: 820 }); await sleep(250);
+  const ov = await hp.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+  console.log(`${w}px:`, ov, ov.sw <= ov.cw + 1 ? 'OK（横スクロールなし）' : '❌ 横スクロールあり');
+}
 
 await browser.close();
 console.log('\nJSエラー:', errors.length ? errors : 'なし');

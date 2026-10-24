@@ -96,10 +96,10 @@
 }
 .rc-cost { display: flex; flex-wrap: wrap; gap: 2px 5px; padding: 4px 5px; border-top: 1px dashed var(--paper-line); }
 .rc-cost-n { color: var(--ink); }
-/* コストの丸の「足りている／足りない」印（✓＝足りている・赤数字＝不足数） */
+/* コストの丸の「足りている／足りない」印（足りている→✓、足りない→数字を赤） */
+.rc-cost-one.short .rc-cost-n { color: var(--red); }
 .rc-cmark { font-size: 9px; font-weight: 900; margin-left: 1px; line-height: 1; }
 .rc-cmark.ok { color: #1f7a46; }
-.rc-cmark.short { color: var(--red); }
 /* 右下の「✓作れる」「あとN」。作れないカードも薄くせず、不足数だけ控えめに出す */
 .rc-card-foot { margin-top: auto; padding: 2px 5px 4px; font-size: 10px; font-weight: 900; text-align: right; line-height: 1.1; }
 .rc-card-foot.ok { color: var(--red-dark); }

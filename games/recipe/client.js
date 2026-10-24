@@ -87,14 +87,13 @@ const TIER_CLASS = { 1: 'tier1', 2: 'tier2', 3: 'tier3' };
 function costHTML(v, card, me) {
   const cost = card.cost || {};
   return `<div class="rc-cost">${ingOrder(v).filter(id => cost[id] > 0).map(id => {
-    let mark = '';
+    let cls = '', mark = '';
     if (me) {
-      const use = (me.bonus[id] || 0) + (me.tokens[id] || 0);
-      mark = use >= cost[id]
-        ? '<span class="rc-cmark ok" aria-label="足りている">✓</span>'
-        : `<span class="rc-cmark short" aria-label="あと${cost[id] - use}">${cost[id] - use}</span>`;
+      const use = (me.bonus[id] || 0) + (me.tokens[id] || 0); // 使える数（割引＋チップ）
+      if (use >= cost[id]) mark = '<span class="rc-cmark ok" aria-label="足りている">✓</span>';
+      else cls = 'short'; // 足りない材料はコストの数字を赤に（✓が無いことでも区別できる）
     }
-    return `<span class="rc-cost-one">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span>${mark}</span>`;
+    return `<span class="rc-cost-one ${cls}">${ingIcon(v, id, 'sm')}<span class="rc-cost-n">${cost[id]}</span>${mark}</span>`;
   }).join('')}</div>`;
 }
 // 作れるか・足りないか（右下の小さな印）。作れないカードを薄くせず、不足数「あとN」を出す
